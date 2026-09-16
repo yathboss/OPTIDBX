@@ -194,3 +194,58 @@ Future work may include:
 **Phase 1 — Research, architecture, and prototype planning.**
 
 The first implementation will focus on a small set of explainable and reversible tuning rules before moving toward ML-based approaches.
+
+---
+
+## Quick Start & Run Instructions (Phase 1)
+
+### 1. Prerequisites
+- Python 3.10+
+- Node.js 18+ and npm
+- Git
+
+### 2. Backend Setup & Run (FastAPI)
+Install backend dependencies:
+```bash
+pip install -r backend/requirements.txt
+# or: pip install fastapi uvicorn pydantic
+```
+
+Run the backend development server:
+```bash
+uvicorn backend.main:app --reload --port 8000
+```
+- Interactive API Documentation (Swagger UI): `http://localhost:8000/docs`
+- Health Endpoint: `http://localhost:8000/health`
+- Live Telemetry Snapshot: `http://localhost:8000/metrics/current`
+- Autotuner Status: `http://localhost:8000/tuner/status`
+- Tuning Action History: `http://localhost:8000/tuning/history`
+- Benchmark Experiments: `http://localhost:8000/experiments`
+
+### 3. Dashboard Setup & Run (React)
+Navigate to `dashboard/`:
+```bash
+cd dashboard
+npm install
+npm run dev
+```
+- The dashboard will be available at `http://localhost:3000`.
+- Automatically polls `http://localhost:8000/metrics/current` and `/tuner/status` every 5 seconds.
+- Falls back gracefully to structured mock telemetry if the backend is offline.
+
+### 4. Evaluation Module
+Evaluate before/after tuning results programmatically:
+```python
+from experiments.evaluator import evaluate_tuning_action
+
+result = evaluate_tuning_action(
+    before_latency=250.0,
+    after_latency=180.0,
+    before_throughput=500.0,
+    after_throughput=620.0,
+    before_cpu=85.0,
+    after_cpu=70.0
+)
+print(result.overall_result)  # IMPROVED / DEGRADED / INCONCLUSIVE
+print(result.latency_change_percent)  # -28.0%
+```
