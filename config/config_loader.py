@@ -1,7 +1,7 @@
 """Load and validate shared settings; no connection credentials belong here."""
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -58,6 +58,12 @@ class AppConfig(ConfigSection):
     modes: ModesConfig
     thresholds: ThresholdsConfig
     safe_values: SafeValuesConfig
+    # Preserve DBMS-owned sections without interpreting them as autotuner policy.
+    # In config.yaml, system compatibility keys alias the canonical values above.
+    system: dict[str, Any] = Field(default_factory=dict)
+    database: dict[str, Any] = Field(default_factory=dict)
+    workload: dict[str, Any] = Field(default_factory=dict)
+    tuning_rules: dict[str, Any] = Field(default_factory=dict)
 
 
 def load_config(path: str | Path | None = None) -> AppConfig:

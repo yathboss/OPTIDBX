@@ -32,6 +32,20 @@ def test_missing_config(tmp_path):
         loader().load_config(tmp_path / "absent.yaml")
 
 
+def test_shared_interval_reaches_both_modules(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from db_monitor import collector
+
+    source = Path(__file__).resolve().parents[1] / "config" / "config.yaml"
+    shared = tmp_path / "config" / "config.yaml"
+    shared.parent.mkdir()
+    shared.write_text(source.read_text().replace("&metric_interval 5", "&metric_interval 7"))
+    monkeypatch.setattr(collector, "PROJECT_ROOT", tmp_path)
+    assert loader().load_config(shared).monitoring.interval_seconds == 7
+    assert collector.load_config_interval() == 7
+
+
 @pytest.mark.parametrize(
     "section,key,value",
     [
