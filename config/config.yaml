@@ -1,0 +1,24 @@
+# Development defaults; calibrate using repeatable workloads before real tuning.
+monitoring:
+  interval_seconds: 5
+  consecutive_bad_readings: 3
+  history_size: 60
+
+tuning:
+  observation_window_seconds: 30
+  cooldown_seconds: 30
+  one_action_at_a_time: true
+
+modes:
+  default_mode: recommendation
+
+thresholds:
+  cpu_high_percent: 90
+  memory_high_percent: 85
+  context_switches_high_per_interval: 3000
+  active_workers_high: 4
+  query_latency_high_ms: 200
+
+safe_values:
+  work_mem_mb: [4, 8, 16, 32, 64]
+  max_parallel_workers_per_gather: [1, 2, 4, 6, 8]
