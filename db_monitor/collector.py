@@ -38,6 +38,10 @@ def load_config_interval(default: int = 5) -> int:
     return default
 
 
+class TelemetryNotReady(ValueError):
+    """No trustworthy complete DB interval is available yet."""
+
+
 class DBMetricsCollector:
     """
     Collects PostgreSQL database performance telemetry every N seconds.
@@ -50,6 +54,7 @@ class DBMetricsCollector:
         self._last_temp_bytes: Optional[int] = None
         self._last_time: Optional[float] = None
         self._has_pg_stat_statements: Optional[bool] = None
+        self._baseline = None
 
     def _get_connection(self):
         if self.conn_params:
@@ -68,124 +73,93 @@ class DBMetricsCollector:
         finally:
             conn.close()
 
-    def get_current_parallelism(self) -> int:
-        """
-        Retrieve current integer max_parallel_workers_per_gather setting.
-        Supplied directly to AutotunerEngine.process(telemetry, current_parallelism).
-        """
-        try:
-            val = self.get_current_setting("max_parallel_workers_per_gather")
-            return int(val)
-        except (ValueError, TypeError, Exception):
-            return 2
+    def get_current_parallelism(self) -> Optional[int]:
+        """Read this connection role's default; never guess a value on failure.
 
-    def _check_pg_stat_statements(self, cur) -> bool:
-        """Check if pg_stat_statements extension is available and queryable."""
-        if self._has_pg_stat_statements is not None:
-            return self._has_pg_stat_statements
+        Workloads must use this same database/role without session overrides.
+        PostgreSQL does not expose another session's arbitrary GUC settings.
+        """
         try:
-            cur.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements';")
-            self._has_pg_stat_statements = bool(cur.fetchone())
-        except Exception:
-            self._has_pg_stat_statements = False
-        return self._has_pg_stat_statements
+            return int(self.get_current_setting("max_parallel_workers_per_gather"))
+        except (ValueError, TypeError, psycopg2.Error):
+            return None
+
+    def warm_up(self) -> None:
+        """Establish a fresh baseline without publishing a zero-valued sample."""
+        self._baseline = None
+        try:
+            self.collect()
+        except TelemetryNotReady:
+            pass
 
     def collect(self) -> Dict[str, Any]:
+        """Read interval deltas; reject unmeasurable latency, resets and evictions.
+
+        Requires pg_stat_statements (PostgreSQL 14+) and access to statistics.
+        Latency covers top-level completed statements for the current role/database,
+        excluding this monitor's statistics queries. Throughput is database-wide.
         """
-        Collects a single snapshot of database metrics.
-        Returns a dict strictly conforming to the shared OptiDBX telemetry contract.
-        """
-        now_dt = datetime.now(timezone.utc)
         now_mono = time.monotonic()
-
-        query_latency_ms = 0.0
-        throughput_tps = 0.0
-        temp_files_bytes = 0
-        active_workers = 0
-
         conn = self._get_connection()
         try:
             with conn.cursor() as cur:
-                # 1. Throughput & Temp Files (from pg_stat_database)
-                cur.execute(
-                    """
-                    SELECT 
-                        COALESCE(xact_commit + xact_rollback, 0) AS total_xact,
-                        COALESCE(temp_bytes, 0) AS temp_bytes
-                    FROM pg_stat_database
-                    WHERE datname = current_database();
-                    """
-                )
-                db_stats = cur.fetchone()
-                if db_stats:
-                    total_xact, total_temp_bytes = db_stats
-
-                    if self._last_xact_count is not None and self._last_time is not None:
-                        elapsed = now_mono - self._last_time
-                        if elapsed > 0:
-                            xact_delta = max(0, total_xact - self._last_xact_count)
-                            throughput_tps = round(xact_delta / elapsed, 2)
-                        if self._last_temp_bytes is not None:
-                            temp_files_bytes = max(0, total_temp_bytes - self._last_temp_bytes)
-
-                    self._last_xact_count = total_xact
-                    self._last_temp_bytes = total_temp_bytes
-                    self._last_time = now_mono
-
-                # 2. Active Workers / Active Activity (from pg_stat_activity)
-                cur.execute(
-                    """
-                    SELECT count(*)
-                    FROM pg_stat_activity
-                    WHERE datname = current_database()
-                      AND state = 'active'
-                      AND pid != pg_backend_pid();
-                    """
-                )
-                worker_row = cur.fetchone()
-                if worker_row:
-                    active_workers = int(worker_row[0])
-
-                # 3. Query Latency (from pg_stat_statements, fallback to active queries)
-                has_pgss = self._check_pg_stat_statements(cur)
-                if has_pgss:
-                    try:
-                        cur.execute(
-                            """
-                            SELECT COALESCE(SUM(total_exec_time) / NULLIF(SUM(calls), 0), 0.0)
-                            FROM pg_stat_statements;
-                            """
-                        )
-                        lat_row = cur.fetchone()
-                        if lat_row and lat_row[0] is not None:
-                            query_latency_ms = round(float(lat_row[0]), 3)
-                    except Exception:
-                        conn.rollback()
-
-                # Fallback if latency remains 0.0 or pgss is disabled
-                if query_latency_ms == 0.0:
-                    cur.execute(
-                        """
-                        SELECT COALESCE(AVG(extract(epoch from (now() - query_start)) * 1000), 0.0)
-                        FROM pg_stat_activity
-                        WHERE datname = current_database()
-                          AND state = 'active'
-                          AND pid != pg_backend_pid();
-                        """
-                    )
-                    act_lat = cur.fetchone()
-                    if act_lat and act_lat[0] is not None:
-                        query_latency_ms = round(float(act_lat[0]), 3)
-
+                cur.execute("""
+                    SELECT xact_commit + xact_rollback, temp_bytes, stats_reset
+                    FROM pg_stat_database WHERE datname = current_database();
+                """)
+                stats = cur.fetchone()
+                if stats is None:
+                    raise TelemetryNotReady("database statistics unavailable")
+                cur.execute("""
+                    SELECT count(*) FROM pg_stat_activity
+                    WHERE datname = current_database() AND state = 'active'
+                      AND backend_type = 'parallel worker';
+                """)
+                workers = int(cur.fetchone()[0])
+                cur.execute("SELECT stats_reset, dealloc FROM pg_stat_statements_info;")
+                info = cur.fetchone()
+                cur.execute("""
+                    SELECT queryid, calls, total_exec_time FROM pg_stat_statements
+                    WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+                      AND userid = (SELECT oid FROM pg_roles WHERE rolname = current_user)
+                      AND toplevel
+                      AND query NOT ILIKE '%%pg_stat_%%'
+                      AND query NOT ILIKE '%%current_setting%%';
+                """)
+                statements = {row[0]: (row[1], float(row[2])) for row in cur.fetchall()}
+        except Exception:
+            self._baseline = None
+            raise
         finally:
             conn.close()
 
+        previous = self._baseline
+        self._baseline = (now_mono, stats, info, statements)
+        if previous is None:
+            raise TelemetryNotReady("baseline established; wait for a full interval")
+        old_time, old_stats, old_info, old_statements = previous
+        elapsed = now_mono - old_time
+        if elapsed <= 0 or stats[2] != old_stats[2] or info != old_info:
+            raise TelemetryNotReady("statistics reset/eviction or invalid measurement interval")
+        xacts, temp = stats[0] - old_stats[0], stats[1] - old_stats[1]
+        if xacts < 0 or temp < 0 or not old_statements.keys() <= statements.keys():
+            raise TelemetryNotReady("statistics counters reset or statement entries disappeared")
+        calls, duration = 0, 0.0
+        for query_id, (count, total_time) in statements.items():
+            old_count, old_total = old_statements.get(query_id, (0, 0.0))
+            delta_count, delta_time = count - old_count, total_time - old_total
+            if delta_count < 0 or delta_time < 0:
+                raise TelemetryNotReady("statement counters reset")
+            calls += delta_count
+            duration += delta_time
+        if calls == 0:
+            raise TelemetryNotReady("no completed statements; latency is unavailable")
         return {
-            "timestamp": now_dt.isoformat(),
-            "query_latency_ms": float(query_latency_ms),
-            "throughput_tps": float(throughput_tps),
-            "temp_files_bytes": int(temp_files_bytes),
-            "active_workers": int(active_workers),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "query_latency_ms": round(duration / calls, 3),
+            "throughput_tps": round(xacts / elapsed, 2),
+            "temp_files_bytes": int(temp),
+            "active_workers": workers,
         }
 
     def start_monitoring(
@@ -205,12 +179,16 @@ class DBMetricsCollector:
         sample_count = 0
 
         # Prime the collector with an initial baseline reading
-        self.collect()
+        self.warm_up()
 
         try:
             while True:
                 time.sleep(interval)
-                sample = self.collect()
+                try:
+                    sample = self.collect()
+                except TelemetryNotReady as exc:
+                    print(f"[DB Monitor] Skipping unavailable interval: {exc}")
+                    continue
                 sample_count += 1
 
                 if save_to_db:

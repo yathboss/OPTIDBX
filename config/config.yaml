@@ -3,6 +3,8 @@ monitoring:
   interval_seconds: &metric_interval 5
   consecutive_bad_readings: &bad_readings 3
   history_size: 60
+  max_timestamp_skew_seconds: 1
+  max_sample_age_seconds: 7.5
 
 tuning:
   observation_window_seconds: &observation_window 30

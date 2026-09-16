@@ -41,8 +41,8 @@ class CombinedTelemetry(ContractModel):
 
     @model_validator(mode="after")
     def aligned_timestamps(self) -> Self:
-        if not self.timestamp == self.os_metrics.timestamp == self.db_metrics.timestamp:
-            raise ValueError("all timestamps must identify the same collection interval")
+        if self.timestamp != max(self.os_metrics.timestamp, self.db_metrics.timestamp):
+            raise ValueError("combined timestamp must be the latest source timestamp")
         return self
 
 
@@ -85,8 +85,30 @@ class TuningAction(ContractModel):
     timestamp: AwareDatetime
 
 
+class TunerState(StrEnum):
+    MONITORING = "MONITORING"
+    BOTTLENECK_CANDIDATE = "BOTTLENECK_CANDIDATE"
+    BOTTLENECK_CONFIRMED = "BOTTLENECK_CONFIRMED"
+    RECOMMENDATION_READY = "RECOMMENDATION_READY"
+
+
 class EngineResult(ContractModel):
     bottleneck: Bottleneck
     recommended_action: TuningAction | None
     consecutive_bad_readings: Counter
-    state: Literal["MONITORING", "CANDIDATE", "RECOMMENDATION"]
+    state: TunerState
+
+
+class RuntimeStatus(ContractModel):
+    state: TunerState = TunerState.MONITORING
+    mode: Literal["recommendation"] = "recommendation"
+    detected_bottleneck: BottleneckType = BottleneckType.NONE
+    reason: str = "Waiting for a complete telemetry interval."
+    evidence: dict[str, float | int] = Field(default_factory=dict)
+    recommended_action: TuningAction | None = None
+    timestamp: AwareDatetime | None = None
+    consecutive_bad_readings: Counter = 0
+    telemetry_available: bool = False
+    running: bool = False
+    last_error: str | None = None
+    persistence_status: Literal["NOT_REQUESTED", "SAVED", "FAILED"] = "NOT_REQUESTED"

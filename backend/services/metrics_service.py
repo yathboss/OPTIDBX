@@ -7,6 +7,8 @@ tables (system_metrics, db_metrics) maintained by Aryaman and Kartikeya.
 from datetime import datetime, timezone, timedelta
 import random
 from typing import List, Dict, Any
+from fastapi import Depends
+from backend.services.live_runtime import get_runtime, LiveMetricsProvider
 from backend.models.metrics import OSMetrics, DBMetrics, CurrentMetricsResponse
 
 
@@ -91,7 +93,7 @@ class MockMetricsProvider(MetricsProvider):
 
 class MetricsService:
     def __init__(self, provider: MetricsProvider = None):
-        self._provider = provider or MockMetricsProvider()
+        self._provider = provider if provider is not None else LiveMetricsProvider(get_runtime())
 
     def get_current_metrics(self) -> CurrentMetricsResponse:
         return self._provider.get_current_metrics()
@@ -100,9 +102,6 @@ class MetricsService:
         return self._provider.get_metrics_history(limit)
 
 
-_metrics_service_instance = MetricsService()
-
-
-def get_metrics_service() -> MetricsService:
-    return _metrics_service_instance
+def get_metrics_service(runtime=Depends(get_runtime)) -> MetricsService:
+    return MetricsService(LiveMetricsProvider(runtime))
 

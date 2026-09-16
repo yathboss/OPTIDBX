@@ -3,8 +3,16 @@ from typing import List
 from fastapi import APIRouter, Depends
 from backend.models.tuner import TunerStatusResponse, TunerModeRequest, TuningActionItem
 from backend.services.tuner_service import TunerService, get_tuner_service
+from autotuner.models import RuntimeStatus
+from backend.services.live_runtime import get_runtime
 
 router = APIRouter(tags=["tuner"])
+
+
+@router.get("/tuner/live-status", response_model=RuntimeStatus)
+def live_status(runtime=Depends(get_runtime)):
+    """Full Phase 2 state, evidence, and structured recommendation."""
+    return runtime.get_status()
 
 
 @router.get("/tuner/status", response_model=TunerStatusResponse)

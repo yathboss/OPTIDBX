@@ -6,7 +6,7 @@ from typing import Any
 
 from autotuner.action_selector import select_action
 from autotuner.detectors.cpu_detector import detect_cpu, is_cpu_candidate
-from autotuner.models import BottleneckType, CombinedTelemetry, EngineResult
+from autotuner.models import BottleneckType, CombinedTelemetry, EngineResult, RuntimeStatus, TunerState
 from config.config_loader import AppConfig, load_config
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,16 @@ class AutotunerEngine:
             maxlen=self.config.monitoring.history_size
         )
         self._consecutive = 0
+        self._status = RuntimeStatus()
+
+    def get_status(self) -> RuntimeStatus:
+        return self._status.model_copy(deep=True)
+
+    def invalidate(self, reason: str) -> None:
+        if self._consecutive:
+            logger.info("Candidate reset: %s", reason, extra={"event": "candidate_reset"})
+        self._consecutive = 0
+        self._status = RuntimeStatus(reason=reason, last_error=reason)
 
     def process(
         self,
@@ -29,17 +39,20 @@ class AutotunerEngine:
         """Validate a sample, update confirmation, and return a JSON-serializable snapshot."""
         try:
             sample = CombinedTelemetry.model_validate(telemetry)
+            skew = abs((sample.os_metrics.timestamp - sample.db_metrics.timestamp).total_seconds())
+            if skew > self.config.monitoring.max_timestamp_skew_seconds:
+                raise ValueError("OS and DB timestamps exceed the configured skew tolerance")
             if self.recent_readings and sample.timestamp <= self.recent_readings[-1].timestamp:
                 raise ValueError("telemetry timestamp must be newer than the previous sample")
         except ValueError:
-            self._consecutive = 0
+            self.invalidate("Invalid or missing telemetry")
             logger.warning("Invalid or missing telemetry", extra={"event": "invalid_telemetry"})
             raise
 
         if self.recent_readings:
             gap = (sample.timestamp - self.recent_readings[-1].timestamp).total_seconds()
             if gap > self.config.monitoring.interval_seconds * 1.5:
-                self._consecutive = 0
+                self.invalidate("Telemetry gap")
                 logger.info("Telemetry gap reset confirmation", extra={"event": "telemetry_gap"})
         self.recent_readings.append(sample)
         logger.info(
@@ -48,6 +61,8 @@ class AutotunerEngine:
         )
         required = self.config.monitoring.consecutive_bad_readings
         candidate = is_cpu_candidate(sample, self.config.thresholds)
+        if not candidate and self._consecutive:
+            self.invalidate("Normal reading interrupted CPU contention")
         self._consecutive = min(self._consecutive + 1, required) if candidate else 0
         if candidate:
             logger.info(
@@ -63,6 +78,11 @@ class AutotunerEngine:
         if confirmed:
             logger.info("CPU bottleneck confirmed", extra={"event": "bottleneck_confirmed"})
         action = select_action(bottleneck, self.config, current_parallelism)
+        previous = self._status.recommended_action
+        if action is not None and previous is not None and (
+            action.old_value, action.new_value
+        ) == (previous.old_value, previous.new_value):
+            action = previous
         if action is not None:
             logger.info(
                 "Recommendation created",
@@ -74,9 +94,21 @@ class AutotunerEngine:
                     "new_value": action.new_value,
                 },
             )
+        state = (
+            TunerState.RECOMMENDATION_READY if action is not None
+            else TunerState.BOTTLENECK_CONFIRMED if confirmed
+            else TunerState.BOTTLENECK_CANDIDATE if candidate
+            else TunerState.MONITORING
+        )
+        self._status = RuntimeStatus(
+            state=state, detected_bottleneck=bottleneck.bottleneck_type,
+            reason=bottleneck.reason, evidence=bottleneck.evidence,
+            recommended_action=action, timestamp=sample.timestamp,
+            consecutive_bad_readings=self._consecutive, telemetry_available=True,
+        )
         return EngineResult(
             bottleneck=bottleneck,
             recommended_action=action,
             consecutive_bad_readings=self._consecutive,
-            state="RECOMMENDATION" if confirmed else "CANDIDATE" if candidate else "MONITORING",
+            state=state,
         )

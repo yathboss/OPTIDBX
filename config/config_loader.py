@@ -19,6 +19,8 @@ class MonitoringConfig(ConfigSection):
     interval_seconds: PositiveNumber
     consecutive_bad_readings: PositiveInt
     history_size: PositiveInt
+    max_timestamp_skew_seconds: PositiveNumber = 1
+    max_sample_age_seconds: PositiveNumber = 7.5
 
 
 class TuningConfig(ConfigSection):

@@ -5,6 +5,8 @@ Designed to connect to Yatharth's (Developer 1) Autotuner engine in subsequent p
 """
 from datetime import datetime, timezone, timedelta
 from typing import List
+from fastapi import Depends
+from backend.services.live_runtime import get_runtime, LiveTunerProvider
 from backend.models.tuner import TunerStatusResponse, TuningActionItem
 
 
@@ -84,7 +86,7 @@ class MockTunerProvider(TunerProvider):
 
 class TunerService:
     def __init__(self, provider: TunerProvider = None):
-        self._provider = provider or MockTunerProvider()
+        self._provider = provider if provider is not None else LiveTunerProvider(get_runtime())
 
     def get_status(self) -> TunerStatusResponse:
         return self._provider.get_status()
@@ -101,9 +103,6 @@ class TunerService:
         return self._provider.get_history()
 
 
-_tuner_service_instance = TunerService()
-
-
-def get_tuner_service() -> TunerService:
-    return _tuner_service_instance
+def get_tuner_service(runtime=Depends(get_runtime)) -> TunerService:
+    return TunerService(LiveTunerProvider(runtime))
 

@@ -4,10 +4,48 @@ Handles persisting telemetry and managing experiment runs in PostgreSQL.
 """
 
 import os
+import json
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+
+def save_recommendation(result, experiment_id: Optional[int] = None) -> int:
+    """Store an explicit recommendation in the existing tuning_actions schema.
+
+    The reason TEXT field holds a JSON evidence envelope; no schema fork is needed.
+    Unknown settings cannot be saved as executable numeric recommendations.
+    """
+    action = result.recommended_action
+    if action is None or action.old_value is None or action.new_value is None:
+        raise ValueError("a concrete recommendation is required for persistence")
+    if action.status != "RECOMMENDED":
+        raise ValueError("Phase 2 persists recommendations only")
+    reason = json.dumps({
+        "action_id": str(action.action_id), "action_type": action.action_type,
+        "bottleneck": result.bottleneck.bottleneck_type,
+        "reason": result.bottleneck.reason, "evidence": result.bottleneck.evidence,
+    })
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO tuning_actions
+                (experiment_id, timestamp, action_type, parameter, old_value,
+                 new_value, reason, status, before_latency_ms)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+            """, (experiment_id, action.timestamp, "RECOMMENDED", action.parameter,
+                  str(action.old_value), str(action.new_value), reason, "RECOMMENDED",
+                  result.bottleneck.evidence["query_latency_ms"]))
+            row_id = cur.fetchone()[0]
+        conn.commit()
+        return row_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def get_connection():
@@ -17,7 +55,9 @@ def get_connection():
         port=int(os.environ.get("POSTGRES_PORT", 5432)),
         dbname=os.environ.get("POSTGRES_DB", "optidbx"),
         user=os.environ.get("POSTGRES_USER", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD"),
+        connect_timeout=3,
+        options="-c statement_timeout=3000",
     )
 
 
