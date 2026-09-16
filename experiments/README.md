@@ -2,6 +2,13 @@
 
 This module provides the foundation for benchmarking workloads and evaluating whether tuning decisions should be kept or rolled back.
 
+Evaluation is owned by **Shivansh Bhardwaj (Developer 4)**, with repeatable workloads from **Kartikeya (Developer 2)** and autotuner decision loops from **Yatharth (Developer 1)**.
+
+Phase 1 includes an executable mock autotuner demo:
+```bash
+python -m autotuner.demo
+```
+
 ## Responsibilities
 - **Workload Evaluation**: Compares metrics collected before a tuning intervention (during baseline/problematic state) with metrics collected during the 30-second observation window.
 - **Decision Engine Support**: Provides `evaluate_tuning_action()` returning an `EvaluationResult` categorized as:
@@ -31,4 +38,3 @@ print(result.overall_result)  # ResultStatus.IMPROVED
 print(result.latency_change_percent)  # -28.0%
 print(result.details)
 ```
-

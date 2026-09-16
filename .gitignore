@@ -1,7 +1,7 @@
 # Environment & Secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.secret
 
 # Python
@@ -31,8 +31,10 @@ wheels/
 
 # Testing & Coverage
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
+coverage.xml
 
 # Logs & Databases
 *.log
