@@ -1,10 +1,11 @@
 """Autotuner and tuning history endpoints."""
-from typing import List
+
 from fastapi import APIRouter, Depends
-from backend.models.tuner import TunerStatusResponse, TunerModeRequest, TuningActionItem
-from backend.services.tuner_service import TunerService, get_tuner_service
+
 from autotuner.models import RuntimeStatus
+from backend.models.tuner import TunerModeRequest, TunerStatusResponse, TuningActionItem
 from backend.services.live_runtime import get_runtime
+from backend.services.tuner_service import TunerService, get_tuner_service
 
 router = APIRouter(tags=["tuner"])
 
@@ -42,11 +43,10 @@ def toggle_monitoring(
 
 
 # Both /tuning/history and /tuner/history for backward and forward compatibility
-@router.get("/tuning/history", response_model=List[TuningActionItem])
-@router.get("/tuner/history", response_model=List[TuningActionItem])
+@router.get("/tuning/history", response_model=list[TuningActionItem])
+@router.get("/tuner/history", response_model=list[TuningActionItem])
 def get_tuning_history(
     tuner_service: TunerService = Depends(get_tuner_service),
-) -> List[TuningActionItem]:
+) -> list[TuningActionItem]:
     """Returns historical tuning actions with before/after results and status."""
     return tuner_service.get_history()
-

@@ -6,7 +6,13 @@ from typing import Any
 
 from autotuner.action_selector import select_action
 from autotuner.detectors.cpu_detector import detect_cpu, is_cpu_candidate
-from autotuner.models import BottleneckType, CombinedTelemetry, EngineResult, RuntimeStatus, TunerState
+from autotuner.models import (
+    BottleneckType,
+    CombinedTelemetry,
+    EngineResult,
+    RuntimeStatus,
+    TunerState,
+)
 from config.config_loader import AppConfig, load_config
 
 logger = logging.getLogger(__name__)
@@ -79,9 +85,11 @@ class AutotunerEngine:
             logger.info("CPU bottleneck confirmed", extra={"event": "bottleneck_confirmed"})
         action = select_action(bottleneck, self.config, current_parallelism)
         previous = self._status.recommended_action
-        if action is not None and previous is not None and (
-            action.old_value, action.new_value
-        ) == (previous.old_value, previous.new_value):
+        if (
+            action is not None
+            and previous is not None
+            and (action.old_value, action.new_value) == (previous.old_value, previous.new_value)
+        ):
             action = previous
         if action is not None:
             logger.info(
@@ -95,16 +103,23 @@ class AutotunerEngine:
                 },
             )
         state = (
-            TunerState.RECOMMENDATION_READY if action is not None
-            else TunerState.BOTTLENECK_CONFIRMED if confirmed
-            else TunerState.BOTTLENECK_CANDIDATE if candidate
+            TunerState.RECOMMENDATION_READY
+            if action is not None
+            else TunerState.BOTTLENECK_CONFIRMED
+            if confirmed
+            else TunerState.BOTTLENECK_CANDIDATE
+            if candidate
             else TunerState.MONITORING
         )
         self._status = RuntimeStatus(
-            state=state, detected_bottleneck=bottleneck.bottleneck_type,
-            reason=bottleneck.reason, evidence=bottleneck.evidence,
-            recommended_action=action, timestamp=sample.timestamp,
-            consecutive_bad_readings=self._consecutive, telemetry_available=True,
+            state=state,
+            detected_bottleneck=bottleneck.bottleneck_type,
+            reason=bottleneck.reason,
+            evidence=bottleneck.evidence,
+            recommended_action=action,
+            timestamp=sample.timestamp,
+            consecutive_bad_readings=self._consecutive,
+            telemetry_available=True,
         )
         return EngineResult(
             bottleneck=bottleneck,

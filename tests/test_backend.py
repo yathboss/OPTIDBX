@@ -1,12 +1,26 @@
 """Unit tests for OptiDBX FastAPI Backend Endpoints."""
+
 import unittest
+
 from fastapi.testclient import TestClient
+
 from backend.main import app
+from backend.services.metrics_service import MetricsService, get_metrics_service
+from backend.services.tuner_service import TunerService, get_tuner_service
+from tests.mock_providers import MockMetricsProvider, MockTunerProvider
 
 
 class TestOptiDBXBackend(unittest.TestCase):
     def setUp(self):
+        app.dependency_overrides[get_metrics_service] = lambda: MetricsService(
+            MockMetricsProvider()
+        )
+        self.tuner = TunerService(MockTunerProvider())
+        app.dependency_overrides[get_tuner_service] = lambda: self.tuner
         self.client = TestClient(app)
+
+    def tearDown(self):
+        app.dependency_overrides.clear()
 
     def test_health_endpoint(self):
         response = self.client.get("/health")
@@ -107,4 +121,3 @@ class TestOptiDBXBackend(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

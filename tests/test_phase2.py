@@ -173,10 +173,10 @@ def test_unknown_parameter_is_never_guessed(sample):
 
 
 def test_live_api_returns_real_status_and_rejects_auto(sample):
-    from backend.services.live_runtime import get_runtime
     from fastapi.testclient import TestClient
 
     from backend.main import app
+    from backend.services.live_runtime import get_runtime
 
     run, os_source, db_source, clock = runtime(sample)
     for i in range(3):
@@ -202,3 +202,38 @@ def test_default_api_has_no_fabricated_metrics_or_recommendation():
     client = TestClient(app)
     assert client.get("/tuner/status").json()["detected_bottleneck"] == "NONE"
     assert client.get("/metrics/current").status_code == 503
+
+
+def test_existing_workload_runner_accepts_a_read_only_benchmark_script(tmp_path, monkeypatch):
+    import importlib
+
+    module = importlib.import_module("workload.run_workload")
+    script = tmp_path / "analytical.sql"
+    script.write_text("SELECT sum(aid) FROM pgbench_accounts;")
+    launch = Mock()
+    monkeypatch.setattr(module.subprocess, "Popen", launch)
+    module.run_workload(
+        "MEDIUM", duration_sec=20, async_mode=True, pgbench_bin="pgbench", script_path=script
+    )
+    command = launch.call_args.args[0]
+    assert command[command.index("-f") + 1] == str(script)
+    assert "-i" not in command
+
+
+def test_runtime_background_stops_without_publishing_after_stop(sample):
+    import threading
+
+    from autotuner.runtime import AutotunerRuntime
+
+    run = AutotunerRuntime(os_collector=Mock(), db_collector=Mock())
+    entered = threading.Event()
+    run.prime = Mock(side_effect=entered.set)
+    run.start()
+    thread = run._thread
+    run.start()
+    assert run._thread is thread
+    assert entered.wait(2)
+    run.stop()
+    assert not run.get_status().running
+    assert run.tick() is None
+    assert not run.get_status().telemetry_available

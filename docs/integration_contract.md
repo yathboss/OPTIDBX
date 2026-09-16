@@ -1,5 +1,10 @@
 # Phase 1 integration contract
 
+> Phase 2 update: [autotuner_flow.md](autotuner_flow.md) supersedes the exact-timestamp,
+> state-name, DB latency/worker, runtime, and persistence descriptions below.
+> Source timestamps are preserved with configurable skew tolerance; live providers
+> and structured status are now available. Field names and units remain compatible.
+
 Owner: Yatharth (autotuner/integration). This is the initial contract for team review.
 The repository previously had no Python interfaces or database schema. Adding these
 models affects Aryaman's collector, Kartikeya's collector, and Shivansh's API;

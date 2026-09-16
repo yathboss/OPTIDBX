@@ -23,7 +23,7 @@ def test_three_readings_confirm_and_recommend(sample, caplog):
     assert (action.old_value, action.new_value) == (8, 6)
     assert results[-1].bottleneck.reason
     assert results[-1].bottleneck.evidence["cpu_percent"] == 94
-    assert results[-1].model_dump(mode="json")["state"] == "RECOMMENDATION"
+    assert results[-1].model_dump(mode="json")["state"] == "RECOMMENDATION_READY"
     events = {record.event for record in caplog.records if hasattr(record, "event")}
     assert {
         "telemetry_received",

@@ -29,7 +29,8 @@ class TelemetryCoordinator:
                 raise ValueError("telemetry timestamp is in the future")
             if previous is not None and timestamp <= previous:
                 raise ValueError("both telemetry sources must be newer than their last reading")
-        combined = CombinedTelemetry(timestamp=max(os_time, db_time),
-                                     os_metrics=os_sample, db_metrics=db_sample)
+        combined = CombinedTelemetry(
+            timestamp=max(os_time, db_time), os_metrics=os_sample, db_metrics=db_sample
+        )
         self._last_os, self._last_db = os_time, db_time
         return combined

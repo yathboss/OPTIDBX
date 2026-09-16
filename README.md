@@ -1,5 +1,21 @@
 # OptiDBX
 
+## Phase 2 — real telemetry integration
+
+The recommendation runtime now pairs real OS and PostgreSQL interval readings,
+confirms sustained CPU/parallelism contention, reads the current setting, and stores
+safe recommendations. FastAPI metrics/tuner endpoints use this runtime by default.
+Auto mode is unavailable; no tuning parameter is applied.
+
+See [the integrated flow and WSL run commands](docs/autotuner_flow.md) and
+[Phase 2 verification evidence](docs/testing/phase2.tdd.md). Run `python -m autotuner`
+on the database host while a workload is running. For the API, start monitoring
+through `POST /tuner/toggle-monitoring?active=true`; metrics return 503 until a valid
+paired interval is available.
+
+The Phase 1 instructions below remain useful for isolated mock tests; the real
+runtime uses `python -m autotuner`, not `python -m autotuner.demo`.
+
 ## Phase 1 prototype — quick start
 
 The shared configuration, telemetry contracts, CPU/parallelism detector, and

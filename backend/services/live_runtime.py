@@ -24,14 +24,23 @@ class LiveTunerProvider:
         action = status.recommended_action
         summary = None
         if action is not None:
-            summary = (f"{action.parameter}: {action.old_value} -> {action.new_value} "
-                       f"({action.status})") if action.new_value is not None else action.reason
+            summary = (
+                (f"{action.parameter}: {action.old_value} -> {action.new_value} ({action.status})")
+                if action.new_value is not None
+                else action.reason
+            )
         return TunerStatusResponse(
-            mode=status.mode, state=status.state, detected_bottleneck=status.detected_bottleneck,
-            reason=status.reason, recommended_action=summary,
-            evidence=status.evidence, recommendation=action,
-            telemetry_available=status.telemetry_available, last_error=status.last_error,
-            running=status.running, persistence_status=status.persistence_status,
+            mode=status.mode,
+            state=status.state,
+            detected_bottleneck=status.detected_bottleneck,
+            reason=status.reason,
+            recommended_action=summary,
+            evidence=status.evidence,
+            recommendation=action,
+            telemetry_available=status.telemetry_available,
+            last_error=status.last_error,
+            running=status.running,
+            persistence_status=status.persistence_status,
         )
 
     def set_mode(self, mode):
@@ -44,14 +53,18 @@ class LiveTunerProvider:
         return self.get_status()
 
     def get_history(self):
-        return [TuningActionItem(
-            timestamp=result.recommended_action.timestamp.isoformat(),
-            bottleneck=result.bottleneck.bottleneck_type,
-            parameter=result.recommended_action.parameter,
-            old_value=result.recommended_action.old_value,
-            new_value=result.recommended_action.new_value,
-            status=result.recommended_action.status, reason=result.bottleneck.reason,
-        ) for result in self.runtime.get_recommendations()]
+        return [
+            TuningActionItem(
+                timestamp=result.recommended_action.timestamp.isoformat(),
+                bottleneck=result.bottleneck.bottleneck_type,
+                parameter=result.recommended_action.parameter,
+                old_value=result.recommended_action.old_value,
+                new_value=result.recommended_action.new_value,
+                status=result.recommended_action.status,
+                reason=result.bottleneck.reason,
+            )
+            for result in self.runtime.get_recommendations()
+        ]
 
 
 class LiveMetricsProvider:

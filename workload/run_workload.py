@@ -4,18 +4,18 @@ OptiDBX Standard Workload Generator
 Executes standard, repeatable PostgreSQL workloads across defined profiles (LOW, MEDIUM, HIGH).
 """
 
-import os
-import sys
-import shutil
 import argparse
+import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from workload.profiles import get_profile, DEFAULT_PROFILES
+from workload.profiles import DEFAULT_PROFILES, get_profile  # noqa: E402
 
 
 def find_pgbench() -> str:
@@ -49,16 +49,22 @@ def find_pgbench() -> str:
     )
 
 
-def init_workload_schema(host: str, port: int, db: str, user: str, scale: int = 10, pgbench_bin: str = None):
+def init_workload_schema(
+    host: str, port: int, db: str, user: str, scale: int = 10, pgbench_bin: str = None
+):
     """Initialize pgbench tables (pgbench_accounts, pgbench_branches, etc.)."""
     bin_path = pgbench_bin or find_pgbench()
     cmd = [
         bin_path,
         "-i",
-        "-s", str(scale),
-        "-h", host,
-        "-p", str(port),
-        "-U", user,
+        "-s",
+        str(scale),
+        "-h",
+        host,
+        "-p",
+        str(port),
+        "-U",
+        user,
         db,
     ]
     print(f"[Workload Generator] Initializing schema with scale {scale}...")
@@ -80,6 +86,7 @@ def run_workload(
     user: str = None,
     async_mode: bool = False,
     pgbench_bin: str = None,
+    script_path: str = None,
 ):
     """
     Run a standard workload profile against the target PostgreSQL database.
@@ -96,22 +103,38 @@ def run_workload(
 
     cmd = [
         bin_path,
-        "-c", str(profile["clients"]),
-        "-j", str(profile["threads"]),
-        "-T", str(duration),
-        "-h", host,
-        "-p", str(port),
-        "-U", user,
+        "-c",
+        str(profile["clients"]),
+        "-j",
+        str(profile["threads"]),
+        "-T",
+        str(duration),
+        "-h",
+        host,
+        "-p",
+        str(port),
+        "-U",
+        user,
         db,
     ]
 
+    if script_path is not None:
+        script = Path(script_path)
+        if not script.is_file():
+            raise FileNotFoundError(f"Workload script not found: {script}")
+        cmd.extend(["-f", str(script)])
+
     print(f"[Workload Generator] Launching '{profile_name}' profile:")
-    print(f"  Clients: {profile['clients']} | Threads: {profile['threads']} | Duration: {duration}s")
+    print(
+        f"  Clients: {profile['clients']} | Threads: {profile['threads']} | Duration: {duration}s"
+    )
     print(f"  Command: {' '.join(cmd)}")
 
     env = os.environ.copy()
     if async_mode:
-        return subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        return subprocess.Popen(
+            cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
 
     proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
     if proc.returncode == 0:
@@ -132,11 +155,21 @@ def main():
     )
     parser.add_argument("--init", action="store_true", help="Initialize pgbench schema")
     parser.add_argument("--scale", type=int, default=10, help="Scale factor for initialization")
-    parser.add_argument("--duration", type=int, default=None, help="Duration in seconds (overrides profile)")
-    parser.add_argument("--host", default=os.environ.get("POSTGRES_HOST", "localhost"), help="DB Host")
-    parser.add_argument("--port", type=int, default=int(os.environ.get("POSTGRES_PORT", 5432)), help="DB Port")
-    parser.add_argument("--db", default=os.environ.get("POSTGRES_DB", "optidbx"), help="Database Name")
-    parser.add_argument("--user", default=os.environ.get("POSTGRES_USER", "postgres"), help="DB User")
+    parser.add_argument(
+        "--duration", type=int, default=None, help="Duration in seconds (overrides profile)"
+    )
+    parser.add_argument(
+        "--host", default=os.environ.get("POSTGRES_HOST", "localhost"), help="DB Host"
+    )
+    parser.add_argument(
+        "--port", type=int, default=int(os.environ.get("POSTGRES_PORT", 5432)), help="DB Port"
+    )
+    parser.add_argument(
+        "--db", default=os.environ.get("POSTGRES_DB", "optidbx"), help="Database Name"
+    )
+    parser.add_argument(
+        "--user", default=os.environ.get("POSTGRES_USER", "postgres"), help="DB User"
+    )
 
     args = parser.parse_args()
 
@@ -155,4 +188,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

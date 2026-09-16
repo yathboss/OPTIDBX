@@ -9,12 +9,13 @@ Shared fields:
 - active_workers
 """
 
-import os
 import sys
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Any
+
 import psycopg2
 import yaml
 
@@ -22,7 +23,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from db_monitor.storage import save_db_metrics, get_connection
+from db_monitor.storage import get_connection, save_db_metrics  # noqa: E402
 
 
 def load_config_interval(default: int = 5) -> int:
@@ -30,7 +31,7 @@ def load_config_interval(default: int = 5) -> int:
     config_path = PROJECT_ROOT / "config" / "config.yaml"
     if config_path.exists():
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
                 return int(data.get("system", {}).get("metric_interval_seconds", default))
         except Exception:
@@ -48,12 +49,12 @@ class DBMetricsCollector:
     Tracks state between ticks to accurately compute transaction throughput (TPS).
     """
 
-    def __init__(self, conn_params: Optional[Dict[str, Any]] = None):
+    def __init__(self, conn_params: dict[str, Any] | None = None):
         self.conn_params = conn_params or {}
-        self._last_xact_count: Optional[int] = None
-        self._last_temp_bytes: Optional[int] = None
-        self._last_time: Optional[float] = None
-        self._has_pg_stat_statements: Optional[bool] = None
+        self._last_xact_count: int | None = None
+        self._last_temp_bytes: int | None = None
+        self._last_time: float | None = None
+        self._has_pg_stat_statements: bool | None = None
         self._baseline = None
 
     def _get_connection(self):
@@ -73,7 +74,7 @@ class DBMetricsCollector:
         finally:
             conn.close()
 
-    def get_current_parallelism(self) -> Optional[int]:
+    def get_current_parallelism(self) -> int | None:
         """Read this connection role's default; never guess a value on failure.
 
         Workloads must use this same database/role without session overrides.
@@ -92,7 +93,7 @@ class DBMetricsCollector:
         except TelemetryNotReady:
             pass
 
-    def collect(self) -> Dict[str, Any]:
+    def collect(self) -> dict[str, Any]:
         """Read interval deltas; reject unmeasurable latency, resets and evictions.
 
         Requires pg_stat_statements (PostgreSQL 14+) and access to statistics.
@@ -124,7 +125,8 @@ class DBMetricsCollector:
                       AND userid = (SELECT oid FROM pg_roles WHERE rolname = current_user)
                       AND toplevel
                       AND query NOT ILIKE '%%pg_stat_%%'
-                      AND query NOT ILIKE '%%current_setting%%';
+                      AND query NOT ILIKE '%%current_setting%%'
+                      AND btrim(query) !~* '^(BEGIN|COMMIT|ROLLBACK|END|START TRANSACTION);?$';
                 """)
                 statements = {row[0]: (row[1], float(row[2])) for row in cur.fetchall()}
         except Exception:
@@ -155,7 +157,7 @@ class DBMetricsCollector:
         if calls == 0:
             raise TelemetryNotReady("no completed statements; latency is unavailable")
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "query_latency_ms": round(duration / calls, 3),
             "throughput_tps": round(xacts / elapsed, 2),
             "temp_files_bytes": int(temp),
@@ -164,11 +166,11 @@ class DBMetricsCollector:
 
     def start_monitoring(
         self,
-        interval_seconds: Optional[int] = None,
-        max_samples: Optional[int] = None,
-        experiment_id: Optional[int] = None,
+        interval_seconds: int | None = None,
+        max_samples: int | None = None,
+        experiment_id: int | None = None,
         save_to_db: bool = True,
-        on_sample: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_sample: Callable[[dict[str, Any]], None] | None = None,
     ):
         """
         Continuously collects telemetry every `interval_seconds`.
@@ -193,7 +195,7 @@ class DBMetricsCollector:
 
                 if save_to_db:
                     try:
-                        record_id = save_db_metrics(sample, experiment_id=experiment_id)
+                        save_db_metrics(sample, experiment_id=experiment_id)
                     except Exception as e:
                         print(f"[DB Monitor Error] Failed to persist sample to DB: {e}")
 
@@ -222,4 +224,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

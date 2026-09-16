@@ -1,5 +1,12 @@
 # OptiDBX: DB Monitor Interface Contract
 
+> Phase 2 integration corrections: see [autotuner_flow.md](autotuner_flow.md).
+> `collect()` now requires pg_stat_statements, returns interval completed-statement
+> latency and parallel-worker counts, and raises `TelemetryNotReady` for warm-up,
+> resets, or unmeasurable intervals. Call `warm_up()` then wait a full interval.
+> `get_current_parallelism()` returns None if the setting cannot be read.
+> These rules supersede the cumulative/fallback descriptions in the Phase 1 text below.
+
 **Owner:** Developer 2 — Kartikeya Kushwaha (DBMS & Workload Engineer)  
 **Consumers:**
 - Developer 1 (Yatharth Singh) — Autotuner Decision Engine

@@ -37,6 +37,13 @@ from os_monitor.storage import (
 from os_monitor.health import run_health_check
 
 
+@pytest.fixture(autouse=True)
+def offline_database(monkeypatch):
+    """These tests specify offline fallback; never write to a developer's database."""
+    import psycopg2
+    monkeypatch.setattr(psycopg2, "connect", MagicMock(side_effect=psycopg2.OperationalError("offline test")))
+
+
 # ==============================================================================
 # Unit Tests: Metric Ranges & Types
 # ==============================================================================

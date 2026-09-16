@@ -3,15 +3,16 @@ OptiDBX Database Telemetry Storage
 Handles persisting telemetry and managing experiment runs in PostgreSQL.
 """
 
-import os
 import json
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
+from typing import Any
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
-def save_recommendation(result, experiment_id: Optional[int] = None) -> int:
+def save_recommendation(result, experiment_id: int | None = None) -> int:
     """Store an explicit recommendation in the existing tuning_actions schema.
 
     The reason TEXT field holds a JSON evidence envelope; no schema fork is needed.
@@ -22,22 +23,37 @@ def save_recommendation(result, experiment_id: Optional[int] = None) -> int:
         raise ValueError("a concrete recommendation is required for persistence")
     if action.status != "RECOMMENDED":
         raise ValueError("Phase 2 persists recommendations only")
-    reason = json.dumps({
-        "action_id": str(action.action_id), "action_type": action.action_type,
-        "bottleneck": result.bottleneck.bottleneck_type,
-        "reason": result.bottleneck.reason, "evidence": result.bottleneck.evidence,
-    })
+    reason = json.dumps(
+        {
+            "action_id": str(action.action_id),
+            "action_type": action.action_type,
+            "bottleneck": result.bottleneck.bottleneck_type,
+            "reason": result.bottleneck.reason,
+            "evidence": result.bottleneck.evidence,
+        }
+    )
     conn = get_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 INSERT INTO tuning_actions
                 (experiment_id, timestamp, action_type, parameter, old_value,
                  new_value, reason, status, before_latency_ms)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
-            """, (experiment_id, action.timestamp, "RECOMMENDED", action.parameter,
-                  str(action.old_value), str(action.new_value), reason, "RECOMMENDED",
-                  result.bottleneck.evidence["query_latency_ms"]))
+            """,
+                (
+                    experiment_id,
+                    action.timestamp,
+                    "RECOMMENDED",
+                    action.parameter,
+                    str(action.old_value),
+                    str(action.new_value),
+                    reason,
+                    "RECOMMENDED",
+                    result.bottleneck.evidence["query_latency_ms"],
+                ),
+            )
             row_id = cur.fetchone()[0]
         conn.commit()
         return row_id
@@ -61,7 +77,7 @@ def get_connection():
     )
 
 
-def start_experiment(workload_type: str, notes: Optional[str] = None) -> int:
+def start_experiment(workload_type: str, notes: str | None = None) -> int:
     """
     Start a new experiment run session and record it in experiment_runs.
     Returns the newly created experiment_id.
@@ -85,7 +101,7 @@ def start_experiment(workload_type: str, notes: Optional[str] = None) -> int:
         conn.close()
 
 
-def end_experiment(experiment_id: int, status: str = "COMPLETED", notes: Optional[str] = None):
+def end_experiment(experiment_id: int, status: str = "COMPLETED", notes: str | None = None):
     """Mark an experiment run session as finished."""
     conn = get_connection()
     try:
@@ -106,7 +122,7 @@ def end_experiment(experiment_id: int, status: str = "COMPLETED", notes: Optiona
         conn.close()
 
 
-def save_db_metrics(metrics: Dict[str, Any], experiment_id: Optional[int] = None) -> int:
+def save_db_metrics(metrics: dict[str, Any], experiment_id: int | None = None) -> int:
     """
     Persist a collected DB telemetry sample into the db_metrics table.
     Returns the generated record ID.
@@ -120,7 +136,7 @@ def save_db_metrics(metrics: Dict[str, Any], experiment_id: Optional[int] = None
             elif isinstance(timestamp, datetime):
                 ts_val = timestamp.isoformat()
             else:
-                ts_val = datetime.now(timezone.utc).isoformat()
+                ts_val = datetime.now(UTC).isoformat()
 
             cur.execute(
                 """
@@ -151,7 +167,9 @@ def save_db_metrics(metrics: Dict[str, Any], experiment_id: Optional[int] = None
         conn.close()
 
 
-def get_recent_db_metrics(experiment_id: Optional[int] = None, limit: int = 10) -> List[Dict[str, Any]]:
+def get_recent_db_metrics(
+    experiment_id: int | None = None, limit: int = 10
+) -> list[dict[str, Any]]:
     """Retrieve recent DB metric records from db_metrics."""
     conn = get_connection()
     try:
@@ -159,7 +177,8 @@ def get_recent_db_metrics(experiment_id: Optional[int] = None, limit: int = 10) 
             if experiment_id is not None:
                 cur.execute(
                     """
-                    SELECT id, experiment_id, timestamp, query_latency_ms, throughput_tps, temp_files_bytes, active_workers
+                    SELECT id, experiment_id, timestamp, query_latency_ms, throughput_tps,
+                           temp_files_bytes, active_workers
                     FROM db_metrics
                     WHERE experiment_id = %s
                     ORDER BY timestamp DESC
@@ -170,7 +189,8 @@ def get_recent_db_metrics(experiment_id: Optional[int] = None, limit: int = 10) 
             else:
                 cur.execute(
                     """
-                    SELECT id, experiment_id, timestamp, query_latency_ms, throughput_tps, temp_files_bytes, active_workers
+                    SELECT id, experiment_id, timestamp, query_latency_ms, throughput_tps,
+                           temp_files_bytes, active_workers
                     FROM db_metrics
                     ORDER BY timestamp DESC
                     LIMIT %s;
@@ -180,4 +200,3 @@ def get_recent_db_metrics(experiment_id: Optional[int] = None, limit: int = 10) 
             return list(cur.fetchall())
     finally:
         conn.close()
-

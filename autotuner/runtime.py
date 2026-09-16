@@ -14,8 +14,16 @@ logger = logging.getLogger(__name__)
 
 
 class AutotunerRuntime:
-    def __init__(self, config=None, *, os_collector=None, db_collector=None,
-                 recommendation_store=None, clock=None, experiment_id=None):
+    def __init__(
+        self,
+        config=None,
+        *,
+        os_collector=None,
+        db_collector=None,
+        recommendation_store=None,
+        clock=None,
+        experiment_id=None,
+    ):
         self.config = config or load_config()
         self.engine = AutotunerEngine(self.config)
         self.coordinator = TelemetryCoordinator(self.config)
@@ -38,9 +46,11 @@ class AutotunerRuntime:
         # psutil CPU baselines are thread-specific; prime in the sampling thread.
         if self.os_collector is None:
             from os_monitor.collector import OSMetricsCollector
+
             self.os_collector = OSMetricsCollector(self.config.monitoring.interval_seconds)
         if self.db_collector is None:
             from db_monitor.collector import DBMetricsCollector
+
             self.db_collector = DBMetricsCollector()
         self.os_collector.warm_up()
         self.db_collector.warm_up()
@@ -54,6 +64,8 @@ class AutotunerRuntime:
     def tick(self):
         """Read one full interval; provider failures clear the detection streak."""
         with self._tick_lock:
+            if self._stop.is_set():
+                return None
             try:
                 if not self._primed:
                     self.prime()
@@ -63,8 +75,11 @@ class AutotunerRuntime:
                 telemetry = self.coordinator.combine(os_metrics, db_metrics, now=self.clock())
             except Exception as exc:
                 self._invalidate(f"Telemetry unavailable: {type(exc).__name__}")
-                logger.warning("Telemetry interval rejected (%s)", type(exc).__name__,
-                               extra={"event": "invalid_telemetry"})
+                logger.warning(
+                    "Telemetry interval rejected (%s)",
+                    type(exc).__name__,
+                    extra={"event": "invalid_telemetry"},
+                )
                 self._primed = False
                 return None
             try:
@@ -72,6 +87,8 @@ class AutotunerRuntime:
             except Exception:
                 current = None
             with self._lock:
+                if self._stop.is_set():
+                    return None
                 try:
                     result = self.engine.process(telemetry, current_parallelism=current)
                 except ValueError:
@@ -81,11 +98,18 @@ class AutotunerRuntime:
                 action = result.recommended_action
                 if action is None:
                     self._persistence = "NOT_REQUESTED"
-                elif not self._actions or self._actions[-1].recommended_action.action_id != action.action_id:
+                elif (
+                    not self._actions
+                    or self._actions[-1].recommended_action.action_id != action.action_id
+                ):
                     self._actions.append(result)
                     self._persistence = "NOT_REQUESTED"
-                if (action is not None and action.new_value is not None and self.store is not None
-                        and self._last_saved != action.action_id):
+                if (
+                    action is not None
+                    and action.new_value is not None
+                    and self.store is not None
+                    and self._last_saved != action.action_id
+                ):
                     # One attempt per ID, including ambiguous commit failures. No blind retry.
                     self._last_saved = action.action_id
                     try:
@@ -93,8 +117,10 @@ class AutotunerRuntime:
                         self._persistence = "SAVED"
                     except Exception:
                         self._persistence = "FAILED"
-                        logger.warning("Recommendation persistence failed",
-                                       extra={"event": "recommendation_storage_failed"})
+                        logger.warning(
+                            "Recommendation persistence failed",
+                            extra={"event": "recommendation_storage_failed"},
+                        )
                 return result
 
     def get_status(self):
@@ -104,11 +130,14 @@ class AutotunerRuntime:
                 age = (self.clock() - status.timestamp).total_seconds()
                 if age > self.config.monitoring.max_sample_age_seconds:
                     self.engine.invalidate("Latest telemetry is stale")
+                    self._persistence = "NOT_REQUESTED"
                     status = self.engine.get_status()
-            return status.model_copy(update={
-                "running": self._thread is not None and self._thread.is_alive(),
-                "persistence_status": self._persistence,
-            })
+            return status.model_copy(
+                update={
+                    "running": self._thread is not None and self._thread.is_alive(),
+                    "persistence_status": self._persistence,
+                }
+            )
 
     def get_history(self, limit=20):
         with self._lock:
@@ -127,7 +156,9 @@ class AutotunerRuntime:
             if result is not None:
                 count += 1
                 yield result
-            remaining = max(0, self.config.monitoring.interval_seconds - (time.monotonic() - started))
+            remaining = max(
+                0, self.config.monitoring.interval_seconds - (time.monotonic() - started)
+            )
             if self._stop.wait(remaining):
                 break
 
