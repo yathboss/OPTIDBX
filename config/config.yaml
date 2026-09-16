@@ -1,0 +1,55 @@
+# OptiDBX Central Configuration
+# Shared across OS monitor, DB monitor, Autotuner, and Dashboard
+
+system:
+  mode: recommendation # "recommendation" or "auto"
+  metric_interval_seconds: 5
+  bad_readings_required: 3
+  observation_window_seconds: 30
+  cooldown_seconds: 30
+
+database:
+  host: localhost
+  port: 5432
+  name: optidbx
+  user: optidbx_user
+  # Password loaded from POSTGRES_PASSWORD environment variable
+
+workload:
+  default_tool: pgbench
+  profiles:
+    LOW:
+      clients: 2
+      threads: 2
+      duration_seconds: 60
+      scale_factor: 10
+      description: "Low concurrency baseline workload"
+    MEDIUM:
+      clients: 10
+      threads: 4
+      duration_seconds: 60
+      scale_factor: 20
+      description: "Moderate concurrency workload"
+    HIGH:
+      clients: 50
+      threads: 8
+      duration_seconds: 90
+      scale_factor: 50
+      description: "High concurrency workload designed to trigger contention"
+
+tuning_rules:
+  dbms:
+    work_mem:
+      default: "4MB"
+      allowed_values: ["4MB", "8MB", "16MB", "32MB", "64MB"]
+    max_parallel_workers_per_gather:
+      default: 2
+      allowed_values: [1, 2, 4, 6, 8]
+    max_parallel_workers:
+      default: 8
+      allowed_values: [2, 4, 8, 12, 16]
+  os:
+    nice_priority:
+      default: 0
+      allowed_values: [-5, 0, 5, 10]
+
