@@ -47,6 +47,7 @@ class DBMetricsCollector:
     def __init__(self, conn_params: Optional[Dict[str, Any]] = None):
         self.conn_params = conn_params or {}
         self._last_xact_count: Optional[int] = None
+        self._last_temp_bytes: Optional[int] = None
         self._last_time: Optional[float] = None
         self._has_pg_stat_statements: Optional[bool] = None
 
@@ -54,6 +55,29 @@ class DBMetricsCollector:
         if self.conn_params:
             return psycopg2.connect(**self.conn_params)
         return get_connection()
+
+    def get_current_setting(self, param_name: str) -> str:
+        """Query PostgreSQL for the current value of a configuration parameter."""
+        conn = self._get_connection()
+        try:
+            with conn.cursor() as cur:
+                # Use parameterized query via set_config/current_setting
+                cur.execute("SELECT current_setting(%s);", (param_name,))
+                row = cur.fetchone()
+                return str(row[0]) if row else ""
+        finally:
+            conn.close()
+
+    def get_current_parallelism(self) -> int:
+        """
+        Retrieve current integer max_parallel_workers_per_gather setting.
+        Supplied directly to AutotunerEngine.process(telemetry, current_parallelism).
+        """
+        try:
+            val = self.get_current_setting("max_parallel_workers_per_gather")
+            return int(val)
+        except (ValueError, TypeError, Exception):
+            return 2
 
     def _check_pg_stat_statements(self, cur) -> bool:
         """Check if pg_stat_statements extension is available and queryable."""
@@ -94,15 +118,18 @@ class DBMetricsCollector:
                 )
                 db_stats = cur.fetchone()
                 if db_stats:
-                    total_xact, temp_files_bytes = db_stats
+                    total_xact, total_temp_bytes = db_stats
 
                     if self._last_xact_count is not None and self._last_time is not None:
                         elapsed = now_mono - self._last_time
                         if elapsed > 0:
                             xact_delta = max(0, total_xact - self._last_xact_count)
                             throughput_tps = round(xact_delta / elapsed, 2)
+                        if self._last_temp_bytes is not None:
+                            temp_files_bytes = max(0, total_temp_bytes - self._last_temp_bytes)
 
                     self._last_xact_count = total_xact
+                    self._last_temp_bytes = total_temp_bytes
                     self._last_time = now_mono
 
                 # 2. Active Workers / Active Activity (from pg_stat_activity)
