@@ -1,4 +1,1 @@
-"""
-OptiDBX Tests Package
-"""
-
+"""OptiDBX Tests Package."""

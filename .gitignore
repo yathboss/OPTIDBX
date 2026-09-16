@@ -1,6 +1,7 @@
 # Environment & Secrets
 .env
-.env.local
+.env.*
+!.env.example
 *.secret
 
 # Python
@@ -30,8 +31,10 @@ wheels/
 
 # Testing & Coverage
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
+coverage.xml
 
 # Logs & Databases
 *.log
@@ -39,15 +42,20 @@ data/
 pgdata/
 *.sqlite3
 
+# Node / React Dashboard
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
 # OS & Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-
-
-# Additional autotuner development and secret exclusions
-.ruff_cache/
-coverage.xml
-.env.*
-!.env.example
+*.swp
+*.swo
