@@ -1,5 +1,52 @@
 # OptiDBX
 
+## Phase 1 prototype — quick start
+
+The shared configuration, telemetry contracts, CPU/parallelism detector, and
+recommendation engine are implemented. This prototype runs entirely on mock data;
+PostgreSQL, OS collectors, API, and dashboard integration are later work.
+
+Requires Python 3.11 or newer. From the repository root on Ubuntu/WSL:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m autotuner.demo
+python -m pytest -q --cov --cov-report=term-missing
+```
+
+On Windows PowerShell (use your installed Python executable if `py` is unavailable):
+
+```powershell
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m autotuner.demo
+.\.venv\Scripts\python.exe -m pytest -q --cov --cov-report=term-missing
+```
+
+The demo prints three JSON snapshots with counters `1`, `2`, `3`. The first two
+have bottleneck `NONE`; the third confirms `CPU_PARALLELISM` and recommends
+`max_parallel_workers_per_gather: 8 -> 6`. It never changes database settings.
+For a demo-only installation, `requirements.txt` contains just runtime dependencies.
+
+- [Shared configuration](config/config.yaml): all thresholds and approved values.
+- [Integration contract](docs/integration_contract.md): fields, units, engine API,
+  error handling, and teammate handoffs.
+- [Test evidence](docs/testing/phase1.tdd.md): verification results and limits.
+- [Phase 1 delivery](docs/phase1_delivery.md): files, ownership, and Git commands.
+
+Development checks:
+
+```bash
+python -m ruff check .
+python -m ruff format --check .
+python -m pip_audit -r requirements-dev.txt
+```
+
+Use the `yatharth-autotuner` feature branch for this implementation. The sections
+below describe the broader project vision; features beyond the prototype remain planned.
+
 **Adaptive OS–DBMS Co-Tuning Framework**
 
 OptiDBX is a research-oriented system that monitors both the **Operating System** and **PostgreSQL** in real time, detects performance bottlenecks, and applies safe tuning actions to improve database performance under changing workloads.

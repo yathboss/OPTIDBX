@@ -48,20 +48,26 @@ from autotuner.engine import AutotunerEngine
 from autotuner.models import CombinedTelemetry
 
 engine = AutotunerEngine()  # loads config/config.yaml independently of cwd
-telemetry = CombinedTelemetry.model_validate({
-    "timestamp": "2026-01-01T00:00:05Z",
-    "os_metrics": {
+telemetry = CombinedTelemetry.model_validate(
+    {
         "timestamp": "2026-01-01T00:00:05Z",
-        "cpu_percent": 94, "memory_percent": 60,
-        "disk_read_bytes": 100, "disk_write_bytes": 200,
-        "context_switches": 4200,
-    },
-    "db_metrics": {
-        "timestamp": "2026-01-01T00:00:05Z",
-        "query_latency_ms": 260, "throughput_tps": 100,
-        "temp_files_bytes": 0, "active_workers": 8,
-    },
-})
+        "os_metrics": {
+            "timestamp": "2026-01-01T00:00:05Z",
+            "cpu_percent": 94,
+            "memory_percent": 60,
+            "disk_read_bytes": 100,
+            "disk_write_bytes": 200,
+            "context_switches": 4200,
+        },
+        "db_metrics": {
+            "timestamp": "2026-01-01T00:00:05Z",
+            "query_latency_ms": 260,
+            "throughput_tps": 100,
+            "temp_files_bytes": 0,
+            "active_workers": 8,
+        },
+    }
+)
 result = engine.process(telemetry, current_parallelism=8)
 payload = result.model_dump(mode="json")
 ```
