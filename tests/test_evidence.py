@@ -69,3 +69,80 @@ def test_evidence_api_empty_and_validation():
     from fastapi.testclient import TestClient
     client = TestClient(app)
     assert client.post('/benchmarks/start', json={'profile': 'INVALID'}).status_code == 422
+
+
+@pytest.fixture
+def benchmark(tmp_path, monkeypatch):
+    import threading
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, Mock
+    from config.config_loader import load_config
+    from experiments.benchmark import BenchmarkService
+    from experiments.evidence import EvidenceStore
+    runtime = SimpleNamespace(config=load_config(), _lock=threading.RLock(),
+        lifecycle=SimpleNamespace(status=lambda: {'state':'MONITORING', 'recovery_required':False}),
+        engine=Mock(), _history=[], set_mode=Mock(), get_action_history=lambda: [])
+    manager = SimpleNamespace(lock=threading.RLock(), runtime=runtime, running=False,
+        connections=[], reservation=None, error=None, experiment_id=0)
+    starts = []
+    def start(profile, duration, **kwargs):
+        starts.append((profile, duration, kwargs))
+        manager.running = True
+        manager.experiment_id += 1
+        manager.measurements = SimpleNamespace(end=0, summary=lambda now: rows()[0]['metrics'])
+    manager.start = start
+    manager.stop = Mock(side_effect=lambda **kwargs: setattr(manager, 'running', False))
+    manager.status = lambda: {'measurements': {}}
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value.fetchone.return_value = ('PG test', 'test_db', 100)
+    monkeypatch.setattr('db_monitor.storage.get_connection', lambda: conn)
+    service = BenchmarkService(manager, EvidenceStore(tmp_path))
+    monkeypatch.setattr(service, '_wait', lambda *args: None)
+    return service, manager, starts
+
+
+def test_runner_freezes_settings_and_records_every_pair(benchmark):
+    service, manager, starts = benchmark
+    service.start({'repetitions': 2})
+    service.thread.join(5)
+    result = service.status()
+    assert result['status'] == 'COMPLETED'
+    assert len(result['runs']) == 4
+    assert len(starts) == 4
+    assert all(s[2]['initial_parallelism'] == 2 for s in starts)
+    assert manager.reservation is None
+    assert service.store.get(result['id'])['runs'] == result['runs']
+
+
+def test_storage_failure_never_starts_workload_or_shows_running(benchmark, monkeypatch):
+    from unittest.mock import Mock
+    service, manager, starts = benchmark
+    monkeypatch.setattr(service.store, 'save', Mock(side_effect=OSError('disk full')))
+    with pytest.raises(OSError):
+        service.start({})
+    assert not starts
+    assert manager.reservation is None
+    assert service.status()['status'] == 'FAILED'
+
+
+def test_cancel_preserves_partial_run_and_releases_control(benchmark, monkeypatch):
+    service, manager, starts = benchmark
+    def cancel_wait(*args):
+        service.cancel()
+        raise InterruptedError('cancelled')
+    monkeypatch.setattr(service, '_wait', cancel_wait)
+    service.start({})
+    service.thread.join(5)
+    record = service.status()
+    assert record['status'] == 'CANCELLED'
+    assert record['runs'][0]['status'] == 'CANCELLED'
+    assert manager.reservation is None
+    assert not manager.running
+
+
+def test_restart_marks_unfinished_evidence_interrupted(benchmark):
+    from experiments.benchmark import BenchmarkService
+    service, manager, starts = benchmark
+    service.store.save({'id':'old', 'status':'RUNNING', 'runs':[]})
+    BenchmarkService(manager, service.store)
+    assert service.store.get('old')['status'] == 'INTERRUPTED'
