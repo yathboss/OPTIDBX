@@ -7,12 +7,17 @@ from fastapi import HTTPException
 from autotuner.runtime import AutotunerRuntime
 from backend.models.metrics import CurrentMetricsResponse
 from backend.models.tuner import TunerStatusResponse, TuningActionItem
-from db_monitor.storage import save_recommendation
+from db_monitor.storage import save_action_event, save_recommendation
+from os_monitor.storage import save_system_metrics
 
 
 @lru_cache(maxsize=1)
 def get_runtime():
-    return AutotunerRuntime(recommendation_store=save_recommendation)
+    return AutotunerRuntime(
+        recommendation_store=save_recommendation,
+        action_store=save_action_event,
+        os_store=save_system_metrics,
+    )
 
 
 class LiveTunerProvider:
@@ -42,11 +47,19 @@ class LiveTunerProvider:
             running=status.running,
             persistence_status=status.persistence_status,
             consecutive_bad_readings=getattr(status, "consecutive_bad_readings", 0),
+            active_action=status.active_action,
+            capabilities=status.capabilities,
+            observation_remaining_seconds=status.observation_remaining_seconds,
+            cooldown_remaining_seconds=status.cooldown_remaining_seconds,
+            recovery_required=status.recovery_required,
+            os_persistence_status=status.os_persistence_status,
         )
 
     def set_mode(self, mode):
-        if mode != "recommendation":
-            raise HTTPException(status_code=422, detail="Phase 2 supports recommendation mode only")
+        try:
+            self.runtime.set_mode(mode)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         return self.get_status()
 
     def set_monitoring(self, active):
@@ -54,8 +67,11 @@ class LiveTunerProvider:
         return self.get_status()
 
     def get_history(self):
+        lifecycle = self.runtime.get_action_history()
+        executed_ids = {record["action"]["action_id"] for record in lifecycle}
         in_memory = [
             TuningActionItem(
+                action_id=str(result.recommended_action.action_id),
                 timestamp=result.recommended_action.timestamp.isoformat(),
                 bottleneck=result.bottleneck.bottleneck_type,
                 parameter=result.recommended_action.parameter,
@@ -65,15 +81,33 @@ class LiveTunerProvider:
                 reason=result.bottleneck.reason,
             )
             for result in self.runtime.get_recommendations()
+            if str(result.recommended_action.action_id) not in executed_ids
         ]
+        in_memory.extend(
+            TuningActionItem(
+                action_id=record["action"]["action_id"],
+                timestamp=record["action"]["timestamp"],
+                bottleneck="CPU_PARALLELISM",
+                parameter=record["action"]["parameter"],
+                old_value=record["action"]["old_value"],
+                new_value=record["action"]["new_value"],
+                status=record.get("outcome", record["state"]),
+                reason=record["reason"],
+                before_metrics=record["before"],
+                after_metrics=record.get("after"),
+            )
+            for record in lifecycle
+        )
         if in_memory:
             return in_memory
 
         # Fallback to persistent storage if in-memory history has not recorded actions yet
         try:
-            from db_monitor.storage import get_connection
-            from psycopg2.extras import RealDictCursor
             import json
+
+            from psycopg2.extras import RealDictCursor
+
+            from db_monitor.storage import get_connection
 
             conn = get_connection()
             try:

@@ -10,6 +10,19 @@ tuning:
   observation_window_seconds: &observation_window 30
   cooldown_seconds: &cooldown 30
   one_action_at_a_time: true
+  baseline_samples: 3
+  minimum_observation_samples: 5
+  improvement_percent: 5
+  degradation_percent: 10
+  resource_degradation_percent: 20
+  disk_noise_floor_bytes: 1048576
+
+# Manual OS actions require explicit process and CPU whitelists.
+os_actions:
+  allowed_pids: []
+  allowed_cpu_ids: []
+  allowed_nice_values: [0, 5, 10]
+  same_user_only: true
 
 modes:
   default_mode: &default_mode recommendation

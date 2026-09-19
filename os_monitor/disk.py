@@ -25,6 +25,7 @@ class DiskTracker:
     """
 
     def __init__(self):
+        self.interval_valid = False
         self._prev_read_bytes: Optional[int] = None
         self._prev_write_bytes: Optional[int] = None
 
@@ -32,6 +33,7 @@ class DiskTracker:
         """Reset internal counter state."""
         self._prev_read_bytes = None
         self._prev_write_bytes = None
+        self.interval_valid = False
 
     def get_io_deltas(self) -> Tuple[int, int]:
         """
@@ -47,6 +49,7 @@ class DiskTracker:
               resets the baseline, clamps the delta to 0, and logs a warning.
         """
         try:
+            self.interval_valid = False
             counters = psutil.disk_io_counters(perdisk=False)
             if counters is None:
                 logger.warning("psutil.disk_io_counters() returned None (no disk devices found).")
@@ -64,6 +67,7 @@ class DiskTracker:
 
             read_delta = curr_read - self._prev_read_bytes
             write_delta = curr_write - self._prev_write_bytes
+            self.interval_valid = read_delta >= 0 and write_delta >= 0
 
             # Handle counter resets or anomalies
             if read_delta < 0:

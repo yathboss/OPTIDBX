@@ -11,6 +11,10 @@ from autotuner.models import TuningAction
 
 
 class TunerStatusResponse(BaseModel):
+    active_action: dict | None = None
+    capabilities: dict = Field(default_factory=dict)
+    recovery_required: bool = False
+    os_persistence_status: str = "NOT_REQUESTED"
     evidence: dict = Field(default_factory=dict)
     recommendation: TuningAction | None = None
     telemetry_available: bool = False
@@ -44,6 +48,9 @@ class TunerModeRequest(BaseModel):
 
 
 class TuningActionItem(BaseModel):
+    action_id: str | None = None
+    before_metrics: dict | None = None
+    after_metrics: dict | None = None
     timestamp: str = Field(..., description="ISO 8601 timestamp of the tuning action")
     bottleneck: str = Field(..., description="Bottleneck category triggering this action")
     parameter: str = Field(..., description="Tuned parameter name")

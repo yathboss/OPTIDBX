@@ -1,5 +1,9 @@
 # Phase 2: real telemetry to recommendations
 
+Historical Phase 2 flow. [Phase 3 integration](phase3_integration.md) extends this
+with explicitly bound DB execution and separate manual OS actions; default startup
+and unbound pgbench monitoring remain recommendation-only.
+
 Phase 2 runs Aryaman's OS collector and Kartikeya's DB collector in one coordinator
 loop. No executor applies PostgreSQL or OS tuning settings. The shared config
 still allows only recommendation mode.

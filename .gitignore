@@ -59,3 +59,5 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+# Local recovery evidence must survive restarts and must never be committed.
+.optidbx/

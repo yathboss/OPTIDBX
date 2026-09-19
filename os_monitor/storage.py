@@ -9,6 +9,8 @@ Includes resilient in-memory buffering when PostgreSQL is unavailable.
 
 import os
 import logging
+import threading
+from functools import wraps
 from collections import deque
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Union
@@ -23,6 +25,15 @@ logger = logging.getLogger("optidbx.os_monitor.storage")
 _MAX_BUFFER_SIZE = 120
 _metrics_buffer: deque = deque(maxlen=_MAX_BUFFER_SIZE)
 _latest_metric_cache: Optional[OSMetrics] = None
+_storage_lock = threading.RLock()
+
+
+def serialized(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        with _storage_lock:
+            return function(*args, **kwargs)
+    return wrapped
 
 
 def get_db_connection():
@@ -32,11 +43,13 @@ def get_db_connection():
         port=int(os.environ.get("POSTGRES_PORT", 5432)),
         dbname=os.environ.get("POSTGRES_DB", "optidbx"),
         user=os.environ.get("POSTGRES_USER", "postgres"),
-        password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        password=os.environ.get("POSTGRES_PASSWORD") or None,
         connect_timeout=3,
+        options="-c statement_timeout=3000",
     )
 
 
+@serialized
 def save_system_metrics(
     metrics: Union[OSMetrics, Dict[str, Any]],
     experiment_id: Optional[int] = None,
@@ -83,8 +96,8 @@ def save_system_metrics(
         try:
             with conn.cursor() as cur:
                 # Flush previously buffered items if any
-                while _metrics_buffer:
-                    buffered = _metrics_buffer[0]
+                pending_count = len(_metrics_buffer)
+                for buffered in list(_metrics_buffer):
                     cur.execute(
                         """
                         INSERT INTO system_metrics (
@@ -108,7 +121,6 @@ def save_system_metrics(
                             buffered["context_switches"],
                         ),
                     )
-                    _metrics_buffer.popleft()
 
                 # Insert current sample
                 cur.execute(
@@ -137,6 +149,9 @@ def save_system_metrics(
                 )
                 record_id = cur.fetchone()[0]
                 conn.commit()
+                # Do not discard buffered samples until the transaction committed.
+                for _ in range(pending_count):
+                    _metrics_buffer.popleft()
                 logger.debug(f"Saved system_metrics row #{record_id} (experiment_id={experiment_id})")
                 return record_id
         finally:
@@ -152,6 +167,7 @@ def save_system_metrics(
         return None
 
 
+@serialized
 def get_latest_os_metrics() -> Optional[OSMetrics]:
     """
     Retrieve the newest normalized OS telemetry.
@@ -189,6 +205,7 @@ def get_latest_os_metrics() -> Optional[OSMetrics]:
     return None
 
 
+@serialized
 def get_os_metrics_history(
     experiment_id: Optional[int] = None,
     limit: int = 20,

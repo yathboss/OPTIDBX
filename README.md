@@ -1,5 +1,15 @@
 # OptiDBX
 
+## Phase 3 — local integration
+
+The runtime now supports a verified DB action lifecycle on an explicitly bound
+workload connection, plus separate manual Linux affinity/nice actions. Startup
+remains recommendation-only; external pgbench sessions cannot be auto-tuned.
+See [binding, safety, APIs, and review commands](docs/phase3_integration.md) and
+[verification evidence](docs/testing/phase3.tdd.md).
+
+The Phase 2/1 sections below describe the earlier development milestones.
+
 ## Phase 2 — real telemetry integration
 
 The recommendation runtime now pairs real OS and PostgreSQL interval readings,

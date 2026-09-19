@@ -25,11 +25,13 @@ class ContextSwitchTracker:
     """
 
     def __init__(self):
+        self.interval_valid = False
         self._prev_ctx_switches: Optional[int] = None
 
     def reset(self) -> None:
         """Reset internal counter state."""
         self._prev_ctx_switches = None
+        self.interval_valid = False
 
     def get_context_switches_delta(self) -> int:
         """
@@ -45,6 +47,7 @@ class ContextSwitchTracker:
               clamps delta to 0, and logs a warning.
         """
         try:
+            self.interval_valid = False
             stats = psutil.cpu_stats()
             if stats is None or not hasattr(stats, "ctx_switches"):
                 logger.warning("psutil.cpu_stats() has no ctx_switches attribute.")
@@ -59,6 +62,7 @@ class ContextSwitchTracker:
                 return 0
 
             delta = curr_cs - self._prev_ctx_switches
+            self.interval_valid = delta >= 0
 
             if delta < 0:
                 logger.warning(

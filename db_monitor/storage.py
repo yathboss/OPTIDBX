@@ -12,6 +12,49 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 
+def save_action_event(record, experiment_id=None):
+    """Append lifecycle evidence to the existing table; no incompatible migration.
+
+    Multiple events share an action UUID inside the JSON reason envelope.
+    """
+    action = record["action"]
+    before, after = record["before"], record.get("after") or {}
+    envelope = {**record, "action_id": action["action_id"], "bottleneck": "CPU_PARALLELISM"}
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO tuning_actions (experiment_id, timestamp, action_type,
+                    parameter, old_value, new_value, reason, status, before_latency_ms,
+                    after_latency_ms, before_throughput_tps, after_throughput_tps)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """,
+                (
+                    experiment_id,
+                    datetime.now(UTC),
+                    "APPLIED_AUTO" if record["automatic"] else "APPLIED_MANUAL",
+                    action["parameter"],
+                    str(action["old_value"]),
+                    str(action["new_value"]),
+                    json.dumps(envelope),
+                    record["state"],
+                    before["query_latency_ms"],
+                    after.get("query_latency_ms"),
+                    before["throughput_tps"],
+                    after.get("throughput_tps"),
+                ),
+            )
+            row_id = cur.fetchone()[0]
+        conn.commit()
+        return row_id
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def save_recommendation(result, experiment_id: int | None = None) -> int:
     """Store an explicit recommendation in the existing tuning_actions schema.
 

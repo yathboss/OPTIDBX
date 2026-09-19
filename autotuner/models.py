@@ -90,6 +90,13 @@ class TunerState(StrEnum):
     BOTTLENECK_CANDIDATE = "BOTTLENECK_CANDIDATE"
     BOTTLENECK_CONFIRMED = "BOTTLENECK_CONFIRMED"
     RECOMMENDATION_READY = "RECOMMENDATION_READY"
+    ACTION_APPLIED = "ACTION_APPLIED"
+    OBSERVING = "OBSERVING"
+    KEEP = "KEEP"
+    ROLLBACK = "ROLLBACK"
+    ROLLBACK_FAILED = "ROLLBACK_FAILED"
+    FAILED = "FAILED"
+    COOLDOWN = "COOLDOWN"
 
 
 class EngineResult(ContractModel):
@@ -101,7 +108,7 @@ class EngineResult(ContractModel):
 
 class RuntimeStatus(ContractModel):
     state: TunerState = TunerState.MONITORING
-    mode: Literal["recommendation"] = "recommendation"
+    mode: Literal["recommendation", "auto"] = "recommendation"
     detected_bottleneck: BottleneckType = BottleneckType.NONE
     reason: str = "Waiting for a complete telemetry interval."
     evidence: dict[str, float | int] = Field(default_factory=dict)
@@ -112,3 +119,9 @@ class RuntimeStatus(ContractModel):
     running: bool = False
     last_error: str | None = None
     persistence_status: Literal["NOT_REQUESTED", "SAVED", "FAILED"] = "NOT_REQUESTED"
+    active_action: dict | None = None
+    capabilities: dict = Field(default_factory=dict)
+    observation_remaining_seconds: Counter = 0
+    cooldown_remaining_seconds: Counter = 0
+    recovery_required: bool = False
+    os_persistence_status: str = "NOT_REQUESTED"

@@ -27,11 +27,24 @@ class TuningConfig(ConfigSection):
     observation_window_seconds: PositiveNumber
     cooldown_seconds: PositiveNumber
     one_action_at_a_time: Literal[True]
+    baseline_samples: Annotated[int, Field(strict=True, ge=3)] = 3
+    minimum_observation_samples: Annotated[int, Field(strict=True, ge=3)] = 5
+    improvement_percent: PositiveNumber = 5
+    degradation_percent: PositiveNumber = 10
+    resource_degradation_percent: PositiveNumber = 20
+    disk_noise_floor_bytes: PositiveNumber = 1048576
 
 
 class ModesConfig(ConfigSection):
-    # Actual auto-tuning is intentionally unavailable until the action lifecycle exists.
+    # Startup remains recommendation-only. Auto requires a bound workload executor.
     default_mode: Literal["recommendation"]
+
+
+class OSActionsConfig(ConfigSection):
+    allowed_pids: tuple[Annotated[int, Field(strict=True, gt=1)], ...] = ()
+    allowed_cpu_ids: tuple[Annotated[int, Field(strict=True, ge=0)], ...] = ()
+    allowed_nice_values: tuple[Annotated[int, Field(strict=True, ge=-20, le=19)], ...] = (0, 5, 10)
+    same_user_only: Literal[True] = True
 
 
 class ThresholdsConfig(ConfigSection):
@@ -60,6 +73,7 @@ class AppConfig(ConfigSection):
     modes: ModesConfig
     thresholds: ThresholdsConfig
     safe_values: SafeValuesConfig
+    os_actions: OSActionsConfig = Field(default_factory=OSActionsConfig)
     # Preserve DBMS-owned sections without interpreting them as autotuner policy.
     # In config.yaml, system compatibility keys alias the canonical values above.
     system: dict[str, Any] = Field(default_factory=dict)

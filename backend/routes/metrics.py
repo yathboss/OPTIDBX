@@ -7,9 +7,22 @@ from fastapi import APIRouter, Depends, Query
 from backend.models.metrics import CurrentMetricsResponse
 from backend.services.metrics_service import MetricsService, get_metrics_service
 from os_monitor.storage import get_os_metrics_history
+from os_monitor.storage import get_latest_os_metrics
+from os_monitor.health import run_health_check
 from db_monitor.storage import get_recent_db_metrics
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
+
+
+@router.get("/os/latest")
+def latest_os_metrics():
+    """Last observed OS sample; timestamp lets consumers check its age."""
+    return get_latest_os_metrics()
+
+
+@router.get("/os/health")
+def os_health():
+    return run_health_check()
 
 
 @router.get("/current", response_model=CurrentMetricsResponse)

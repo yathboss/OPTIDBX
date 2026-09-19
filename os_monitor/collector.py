@@ -113,6 +113,8 @@ class OSMetricsCollector:
         mem = get_memory_percent()
         read_bytes, write_bytes = self._disk_tracker.get_io_deltas()
         cs_delta = self._cs_tracker.get_context_switches_delta()
+        if not self._disk_tracker.interval_valid or not self._cs_tracker.interval_valid:
+            raise RuntimeError("OS counter interval unavailable or reset; baseline refreshed")
 
         sample = OSMetrics(
             timestamp=now,
@@ -164,6 +166,11 @@ class OSMetricsCollector:
             f"OS Collector started with {self.interval_seconds}s interval "
             f"(Active experiment: {self.active_experiment_id})."
         )
+        # CPU baselines are per-thread: prime here and wait one whole interval.
+        self.warm_up()
+        first_deadline = time.monotonic() + self.interval_seconds
+        while self._running and time.monotonic() < first_deadline:
+            time.sleep(min(0.1, max(0, first_deadline - time.monotonic())))
         while self._running:
             start_time = time.monotonic()
             try:

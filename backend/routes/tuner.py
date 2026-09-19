@@ -1,6 +1,6 @@
 """Autotuner and tuning history endpoints."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from autotuner.models import RuntimeStatus
 from backend.models.tuner import TunerModeRequest, TunerStatusResponse, TuningActionItem
@@ -8,6 +8,27 @@ from backend.services.live_runtime import get_runtime
 from backend.services.tuner_service import TunerService, get_tuner_service
 
 router = APIRouter(tags=["tuner"])
+
+
+@router.get("/tuner/actions")
+def action_history(runtime=Depends(get_runtime)):
+    return runtime.get_action_history()
+
+
+@router.post("/tuner/actions/{action_id}/approve", response_model=RuntimeStatus)
+def approve_action(action_id: str, runtime=Depends(get_runtime)):
+    try:
+        return runtime.approve(action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/tuner/actions/{action_id}/rollback", response_model=RuntimeStatus)
+def rollback_action(action_id: str, runtime=Depends(get_runtime)):
+    try:
+        return runtime.rollback(action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/tuner/live-status", response_model=RuntimeStatus)

@@ -1,12 +1,15 @@
-"""Real telemetry loop shared by CLI and FastAPI; no parameter modification."""
+"""Real telemetry loop with a separate, explicitly bound action lifecycle."""
 
 import logging
 import threading
 import time
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 from autotuner.engine import AutotunerEngine
+from autotuner.lifecycle import ActionLifecycle
+from autotuner.models import OSMetrics
 from autotuner.telemetry_coordinator import TelemetryCoordinator
 from config.config_loader import load_config
 
@@ -23,6 +26,11 @@ class AutotunerRuntime:
         recommendation_store=None,
         clock=None,
         experiment_id=None,
+        db_executor=None,
+        action_store=None,
+        action_gate=None,
+        journal_path=None,
+        os_store=None,
     ):
         self.config = config or load_config()
         self.engine = AutotunerEngine(self.config)
@@ -41,6 +49,23 @@ class AutotunerRuntime:
         self._actions = deque(maxlen=self.config.monitoring.history_size)
         self._last_saved = None
         self._persistence = "NOT_REQUESTED"
+        self.mode = "recommendation"
+        self.db_executor = db_executor
+        self.lifecycle = ActionLifecycle(
+            self.config,
+            db_executor,
+            gate=action_gate,
+            journal_path=journal_path,
+            store=action_store,
+            experiment_id=experiment_id,
+        )
+        self._action_error = None
+        self.os_store = os_store
+        self._os_persistence = "NOT_REQUESTED"
+        self._telemetry_pool = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="TelemetryStorage"
+        )
+        self._storage_future = None
 
     def prime(self):
         # psutil CPU baselines are thread-specific; prime in the sampling thread.
@@ -48,6 +73,10 @@ class AutotunerRuntime:
             from os_monitor.collector import OSMetricsCollector
 
             self.os_collector = OSMetricsCollector(self.config.monitoring.interval_seconds)
+            if self.os_store is None:
+                from os_monitor.storage import save_system_metrics
+
+                self.os_store = save_system_metrics
         if self.db_collector is None:
             from db_monitor.collector import DBMetricsCollector
 
@@ -57,6 +86,7 @@ class AutotunerRuntime:
         self._primed = True
 
     def _invalidate(self, reason):
+        self.lifecycle.telemetry_missing(reason)
         with self._lock:
             self.engine.invalidate(reason)
             self._persistence = "NOT_REQUESTED"
@@ -70,8 +100,9 @@ class AutotunerRuntime:
                 if not self._primed:
                     self.prime()
                     return None
-                db_metrics = self.db_collector.collect()
                 os_metrics = self.os_collector.collect_sample()
+                self._persist_os(OSMetrics.model_validate(os_metrics))
+                db_metrics = self.db_collector.collect()
                 telemetry = self.coordinator.combine(os_metrics, db_metrics, now=self.clock())
             except Exception as exc:
                 self._invalidate(f"Telemetry unavailable: {type(exc).__name__}")
@@ -83,12 +114,26 @@ class AutotunerRuntime:
                 self._primed = False
                 return None
             try:
-                current = self.db_collector.get_current_parallelism()
+                # Never read/write a monitor connection as if it were the workload.
+                if self.lifecycle.status()["state"] != "MONITORING":
+                    current = None
+                elif self.db_executor is not None:
+                    reader = getattr(self.db_executor, "try_read", self.db_executor.read)
+                    current = reader()
+                else:
+                    current = self.db_collector.get_current_parallelism()
             except Exception:
                 current = None
             with self._lock:
                 if self._stop.is_set():
                     return None
+                prior_state = self.lifecycle.status()["state"]
+                self.lifecycle.advance(telemetry, now=self.clock())
+                if prior_state != "MONITORING":
+                    # Confirmation must start again after cooldown; no stacked evidence.
+                    self.engine.invalidate("Action lifecycle in progress")
+                    if self.lifecycle.status()["state"] == "MONITORING":
+                        self._history.clear()
                 try:
                     result = self.engine.process(telemetry, current_parallelism=current)
                 except ValueError:
@@ -121,7 +166,74 @@ class AutotunerRuntime:
                             "Recommendation persistence failed",
                             extra={"event": "recommendation_storage_failed"},
                         )
+                if (
+                    self.mode == "auto"
+                    and action is not None
+                    and self.lifecycle.status()["state"] == "MONITORING"
+                ):
+                    try:
+                        self.lifecycle.approve(
+                            action, list(self._history), now=self.clock(), automatic=True
+                        )
+                        self._action_error = None
+                    except ValueError as exc:
+                        self._action_error = str(exc)
                 return result
+
+    def _persist_os(self, sample):
+        if self.os_store is None:
+            return
+        # Bound the queue: storage failure/backpressure never stalls collection.
+        if self._storage_future is not None and not self._storage_future.done():
+            self._os_persistence = "BACKPRESSURE"
+            return
+        experiment_id = self.experiment_id
+
+        def persist():
+            try:
+                result = self.os_store(sample, experiment_id=experiment_id)
+                self._os_persistence = "SAVED" if result is not None else "BUFFERED"
+            except Exception:
+                self._os_persistence = "FAILED"
+                logger.warning(
+                    "OS telemetry persistence failed", extra={"event": "os_storage_failed"}
+                )
+
+        self._storage_future = self._telemetry_pool.submit(persist)
+
+    def flush_telemetry(self):
+        if self._storage_future is not None:
+            self._storage_future.result(timeout=10)
+
+    def set_mode(self, mode):
+        if mode not in ("auto", "recommendation"):
+            raise ValueError("Mode must be recommendation or auto")
+        if mode == "auto" and not self.lifecycle.capabilities().get("available"):
+            raise ValueError("Auto requires an explicitly bound workload connection")
+        if self.lifecycle.status()["recovery_required"]:
+            raise ValueError("Resolve failed rollback before changing modes")
+        self.mode = mode
+        return self.get_status()
+
+    def approve(self, action_id):
+        with self._lock:
+            status = self.get_status()
+            action = status.recommended_action
+            if (
+                not status.telemetry_available
+                or action is None
+                or str(action.action_id) != str(action_id)
+            ):
+                raise ValueError("Unknown or stale recommendation")
+            self.lifecycle.approve(action, list(self._history), now=self.clock())
+        return self.get_status()
+
+    def rollback(self, action_id):
+        self.lifecycle.rollback(action_id)
+        return self.get_status()
+
+    def get_action_history(self):
+        return self.lifecycle.history()
 
     def get_status(self):
         with self._lock:
@@ -130,14 +242,22 @@ class AutotunerRuntime:
                 age = (self.clock() - status.timestamp).total_seconds()
                 if age > self.config.monitoring.max_sample_age_seconds:
                     self.engine.invalidate("Latest telemetry is stale")
+                    self.lifecycle.telemetry_missing("Latest telemetry is stale")
                     self._persistence = "NOT_REQUESTED"
                     status = self.engine.get_status()
-            return status.model_copy(
-                update={
-                    "running": self._thread is not None and self._thread.is_alive(),
-                    "persistence_status": self._persistence,
-                }
-            )
+            updates = {
+                "running": self._thread is not None and self._thread.is_alive(),
+                "persistence_status": self._persistence,
+                "mode": self.mode,
+                "capabilities": self.lifecycle.capabilities(),
+                "os_persistence_status": self._os_persistence,
+            }
+            lifecycle = self.lifecycle.status()
+            if lifecycle["state"] != "MONITORING":
+                updates.update(lifecycle)
+            elif self._action_error:
+                updates["last_error"] = self._action_error
+            return status.model_copy(update=updates)
 
     def get_history(self, limit=20):
         with self._lock:
@@ -179,7 +299,9 @@ class AutotunerRuntime:
 
     def stop(self):
         self._stop.set()
+        self.lifecycle.telemetry_missing("Monitoring stopped")
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=10)
         self._invalidate("Monitoring stopped")
+        self.lifecycle.wait_idle()
