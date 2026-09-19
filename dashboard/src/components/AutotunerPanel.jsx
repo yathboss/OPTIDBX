@@ -1,71 +1,182 @@
 import React from 'react';
-import { AlertTriangle, CheckCircle, Info, Sparkles, Clock, ArrowRight } from 'lucide-react';
+import { Sparkles, Clock, Info, ShieldAlert, Cpu, Activity, Zap, Users, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function AutotunerPanel({ tunerStatus }) {
   const isBottleneck = tunerStatus?.detected_bottleneck && tunerStatus.detected_bottleneck !== 'NONE';
+  const evidence = tunerStatus?.evidence || {};
+  const recommendation = tunerStatus?.recommendation || {};
+  const readingsStreak = tunerStatus?.consecutive_bad_readings ?? 0;
+  const isReady = tunerStatus?.state === 'RECOMMENDATION_READY' || Boolean(tunerStatus?.recommended_action);
+
+  // Status badge styling
+  const getStateBadgeClass = () => {
+    switch (tunerStatus?.state) {
+      case 'RECOMMENDATION_READY':
+        return 'badge-purple';
+      case 'BOTTLENECK_CONFIRMED':
+        return 'badge-rose';
+      case 'BOTTLENECK_CANDIDATE':
+        return 'badge-amber';
+      case 'MONITORING':
+      default:
+        return 'badge-blue';
+    }
+  };
 
   return (
     <div className="autotuner-panel">
       <div className="section-title">
         <Sparkles size={18} color="#8b5cf6" />
-        Autotuner Engine Status & Bottleneck Analysis
+        Autotuner Engine & Bottleneck Analysis (Yatharth - Dev 1)
       </div>
 
       <div className="autotuner-grid">
+        {/* Left Column: Bottleneck Detection & Reason */}
         <div>
           <div className="bottleneck-box">
             <div className="bottleneck-title-row">
               <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                 Bottleneck Detection
               </span>
-              <span className={`badge ${isBottleneck ? 'badge-amber' : 'badge-green'}`}>
-                {isBottleneck ? 'Bottleneck Confirmed' : 'Normal Operation'}
-              </span>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <span className={`badge ${getStateBadgeClass()}`}>
+                  State: {tunerStatus?.state || 'MONITORING'}
+                </span>
+                <span className={`badge ${isBottleneck ? 'badge-amber' : 'badge-green'}`}>
+                  {isBottleneck ? 'BOTTLENECK DETECTED' : 'NORMAL OPERATION'}
+                </span>
+              </div>
             </div>
 
-            <div className="bottleneck-name">
-              {tunerStatus?.detected_bottleneck || 'NO_BOTTLENECK'}
+            <div className="bottleneck-name" style={{ color: isBottleneck ? 'var(--accent-amber)' : 'var(--accent-green)', margin: '0.5rem 0' }}>
+              {tunerStatus?.detected_bottleneck || 'NONE'}
             </div>
 
-            <div className="bottleneck-reason">
-              {tunerStatus?.reason || 'Workload operating within normal CPU, memory, and latency thresholds.'}
+            <div className="bottleneck-reason" style={{ fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1rem' }}>
+              {tunerStatus?.reason || 'Workload telemetry within safe operating boundaries.'}
             </div>
 
-            {tunerStatus?.recommended_action && (
-              <div className="recommendation-pill">
-                <Info size={18} style={{ flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', color: '#93c5fd' }}>
-                    Recommended Safe Tuning Action
+            {/* 3-Reading Confirmation Progress (Task 14) */}
+            <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem 1rem', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', fontSize: '0.8rem' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  3-Interval Bottleneck Streak Counter:
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: readingsStreak >= 3 ? 'var(--accent-rose)' : readingsStreak > 0 ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
+                  {readingsStreak} / 3 readings {readingsStreak >= 3 ? '(CONFIRMED)' : readingsStreak > 0 ? '(ELEVATED)' : '(NORMAL)'}
+                </span>
+              </div>
+              <div style={{ height: 6, background: 'var(--bg-primary)', borderRadius: 3, overflow: 'hidden' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    width: `${Math.min(100, (readingsStreak / 3) * 100)}%`,
+                    background: readingsStreak >= 3 ? 'var(--accent-rose)' : readingsStreak > 0 ? 'var(--accent-amber)' : 'var(--accent-green)',
+                    transition: 'width 0.3s ease',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Raw Measured Evidence (Task 27) */}
+            {evidence && Object.keys(evidence).length > 0 && (
+              <div style={{ marginTop: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                  Measured Bottleneck Evidence (No Guesswork)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
+                  {evidence.cpu_percent !== undefined && (
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>CPU: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>{evidence.cpu_percent}%</strong>
+                    </div>
+                  )}
+                  {evidence.context_switches !== undefined && (
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Ctx Switches: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>{Number(evidence.context_switches).toLocaleString()}</strong>
+                    </div>
+                  )}
+                  {evidence.active_workers !== undefined && (
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Workers: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#93c5fd' }}>{evidence.active_workers}</strong>
+                    </div>
+                  )}
+                  {evidence.query_latency_ms !== undefined && (
+                    <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Latency: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f43f5e' }}>{Number(evidence.query_latency_ms).toFixed(1)} ms</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Recommended Safe Tuning Action Pill */}
+            {(tunerStatus?.recommended_action || recommendation?.parameter) && (
+              <div className="recommendation-pill" style={{ background: 'rgba(139, 92, 246, 0.12)', borderColor: 'rgba(139, 92, 246, 0.4)' }}>
+                <Info size={20} color="var(--accent-purple)" style={{ flexShrink: 0 }} />
+                <div style={{ width: '100%' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', color: '#c4b5fd' }}>
+                      Recommended Safe Tuning Action
+                    </span>
+                    <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
+                      STATUS: RECOMMENDED (Not Applied)
+                    </span>
                   </div>
-                  <div>{tunerStatus.recommended_action}</div>
+                  <div style={{ marginTop: '0.25rem', fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>
+                    {recommendation?.parameter ? (
+                      <span>
+                        <code>{recommendation.parameter}</code>: {recommendation.old_value} &rarr;{' '}
+                        <strong style={{ color: '#a78bfa' }}>{recommendation.new_value}</strong>
+                      </span>
+                    ) : (
+                      tunerStatus.recommended_action
+                    )}
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
+        {/* Right Column: Mode & Operational Safety */}
         <div>
-          {/* Observation & Cooldown details */}
           <div className="bottleneck-box" style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <div>
               <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                Control Loop State
+                Operational Mode & Safety Guardrails
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                <Clock size={16} color="#3b82f6" />
-                <span style={{ fontWeight: 600, fontSize: '1rem', textTransform: 'capitalize' }}>
-                  {tunerStatus?.state || 'Monitoring'}
-                </span>
+
+              <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Active Mode:</span>
+                  <span className="badge badge-blue" style={{ textTransform: 'uppercase' }}>
+                    {tunerStatus?.mode || 'Recommendation'}
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  Phase 2 operates strictly in <strong>Recommendation Mode</strong>. No PostgreSQL settings are automatically modified.
+                </p>
               </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Rule: Bottlenecks require 3 consecutive bad readings (~15s) to trigger. Observation window runs for 30s.
-              </p>
+
+              <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                  Persistence Status
+                </div>
+                <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
+                  DB Record: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  Action stored in <code>tuning_actions</code> PostgreSQL table upon confirmation.
+                </div>
+              </div>
             </div>
 
-            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-              <span>Observation: <strong>{tunerStatus?.observation_remaining_seconds || 0}s</strong></span>
-              <span>Cooldown: <strong>{tunerStatus?.cooldown_remaining_seconds || 0}s</strong></span>
+            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Sampling Interval: <strong>5s</strong> | Candidate Window: <strong>15s</strong> (3 readings)
             </div>
           </div>
         </div>
@@ -73,4 +184,3 @@ export default function AutotunerPanel({ tunerStatus }) {
     </div>
   );
 }
-

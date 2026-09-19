@@ -41,6 +41,7 @@ class LiveTunerProvider:
             last_error=status.last_error,
             running=status.running,
             persistence_status=status.persistence_status,
+            consecutive_bad_readings=getattr(status, "consecutive_bad_readings", 0),
         )
 
     def set_mode(self, mode):
@@ -53,7 +54,7 @@ class LiveTunerProvider:
         return self.get_status()
 
     def get_history(self):
-        return [
+        in_memory = [
             TuningActionItem(
                 timestamp=result.recommended_action.timestamp.isoformat(),
                 bottleneck=result.bottleneck.bottleneck_type,
@@ -65,6 +66,53 @@ class LiveTunerProvider:
             )
             for result in self.runtime.get_recommendations()
         ]
+        if in_memory:
+            return in_memory
+
+        # Fallback to persistent storage if in-memory history has not recorded actions yet
+        try:
+            from db_monitor.storage import get_connection
+            from psycopg2.extras import RealDictCursor
+            import json
+
+            conn = get_connection()
+            try:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute(
+                        "SELECT timestamp, parameter, old_value, new_value, reason, status "
+                        "FROM tuning_actions ORDER BY timestamp DESC LIMIT 20;"
+                    )
+                    rows = list(cur.fetchall())
+                    items = []
+                    for r in rows:
+                        bottleneck = "CPU_PARALLELISM"
+                        reason_text = r["reason"]
+                        try:
+                            envelope = json.loads(r["reason"])
+                            bottleneck = envelope.get("bottleneck", bottleneck)
+                            reason_text = envelope.get("reason", reason_text)
+                        except Exception:
+                            pass
+                        items.append(
+                            TuningActionItem(
+                                timestamp=r["timestamp"].isoformat()
+                                if hasattr(r["timestamp"], "isoformat")
+                                else str(r["timestamp"]),
+                                bottleneck=bottleneck,
+                                parameter=r["parameter"],
+                                old_value=r["old_value"],
+                                new_value=r["new_value"],
+                                status=r["status"],
+                                reason=reason_text,
+                            )
+                        )
+                    return items
+            finally:
+                conn.close()
+        except Exception:
+            pass
+
+        return []
 
 
 class LiveMetricsProvider:

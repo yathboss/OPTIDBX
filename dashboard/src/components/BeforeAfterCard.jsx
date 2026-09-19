@@ -1,22 +1,33 @@
 import React from 'react';
-import { ArrowRight, Check, X, HelpCircle } from 'lucide-react';
+import { Info, Check, X, HelpCircle, Clock } from 'lucide-react';
 
 export default function BeforeAfterCard({
-  before = { latency: 250, throughput: 500, cpu: 84 },
-  after = { latency: 180, throughput: 620, cpu: 68 },
-  decision = 'KEEP',
-  parameter = 'max_parallel_workers_per_gather (8 → 4)',
+  hasCompletedTuning = false,
+  before = null,
+  after = null,
+  decision = null,
+  parameter = null,
 }) {
+  if (!hasCompletedTuning || !before || !after) {
+    return (
+      <div className="comparison-card" style={{ textAlign: 'center', padding: '1.75rem 1.25rem' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-blue)', marginBottom: '0.5rem' }}>
+          <Clock size={20} />
+        </div>
+        <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+          No completed tuning evaluation yet.
+        </div>
+        <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', maxWidth: '540px', margin: '0 auto' }}>
+          Phase 2 operates in <strong>Recommendation Mode</strong> (generating explainable recommendations without applying automated database modifications). The 30-second observation window and automatic <strong>KEEP / ROLLBACK</strong> loop will be active once tuning actuators are enabled in Phase 3.
+        </p>
+      </div>
+    );
+  }
+
   const getBadgeClass = () => {
     if (decision === 'KEEP') return 'badge-green';
     if (decision === 'ROLLBACK') return 'badge-rose';
     return 'badge-amber';
-  };
-
-  const getIcon = () => {
-    if (decision === 'KEEP') return <Check size={14} />;
-    if (decision === 'ROLLBACK') return <X size={14} />;
-    return <HelpCircle size={14} />;
   };
 
   const latencyDelta = Math.round(((after.latency - before.latency) / before.latency) * 100);
@@ -28,7 +39,7 @@ export default function BeforeAfterCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-            Latest Evaluation Window (30s)
+            30-Second Observation Window Evaluation
           </span>
           <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
             Parameter: <code style={{ color: '#93c5fd' }}>{parameter}</code>
@@ -36,7 +47,6 @@ export default function BeforeAfterCard({
         </div>
 
         <span className={`badge ${getBadgeClass()}`}>
-          {getIcon()}
           DECISION: {decision}
         </span>
       </div>
@@ -80,12 +90,6 @@ export default function BeforeAfterCard({
           </div>
         </div>
       </div>
-
-      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-        <Check size={14} color="#10b981" />
-        Result: Overall throughput increased and latency decreased by {Math.abs(latencyDelta)}%. Modification permanently kept.
-      </div>
     </div>
   );
 }
-

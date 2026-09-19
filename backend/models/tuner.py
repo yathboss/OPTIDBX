@@ -17,6 +17,7 @@ class TunerStatusResponse(BaseModel):
     last_error: str | None = None
     running: bool = False
     persistence_status: str = "NOT_REQUESTED"
+    consecutive_bad_readings: int = 0
     mode: str = Field(
         default="recommendation", description="Operating mode: 'recommendation' or 'auto'"
     )

@@ -1,93 +1,88 @@
 import React from 'react';
-import { Play, Square, CheckCircle, RotateCcw, Sliders, RefreshCw } from 'lucide-react';
+import { Play, Square, CheckCircle, RotateCcw, RefreshCw, Lock } from 'lucide-react';
 
 export default function ActionControls({
   tunerStatus,
-  onModeChange,
   onToggleMonitoring,
-  onApplyAction,
-  onRollbackAction,
   onManualRefresh,
   lastUpdated,
   isRefreshing,
 }) {
-  const isMonitoring = tunerStatus?.state !== 'idle';
-  const hasRecommendation = tunerStatus?.recommended_action != null;
+  const isRunning = Boolean(tunerStatus?.running);
 
   return (
     <div className="action-controls-bar">
       <div className="control-group">
-        {/* Mode Toggle Switch */}
+        {/* Mode Display & Guardrail (Tasks 15 & 16) */}
         <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
-          Mode:
+          Operating Mode:
         </span>
         <div className="mode-toggle">
-          <button
-            className={`mode-btn ${tunerStatus?.mode === 'recommendation' ? 'active' : ''}`}
-            onClick={() => onModeChange('recommendation')}
-          >
-            Recommendation
+          <button className="mode-btn active" title="Active Mode: Phase 2 Recommendation Only">
+            Recommendation Mode
           </button>
           <button
-            className={`mode-btn ${tunerStatus?.mode === 'auto' ? 'active' : ''}`}
-            onClick={() => onModeChange('auto')}
+            className="mode-btn"
+            disabled
+            style={{ opacity: 0.5, cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+            title="Auto-Tuning is disabled in Phase 2. Coming in next development phase."
           >
-            Auto-Tuning
+            <Lock size={11} /> Auto-Tuning (Phase 3)
           </button>
         </div>
 
         <div className="control-divider" />
 
-        {/* Start / Stop Monitoring Controls */}
+        {/* Start / Stop Real Telemetry Loop (Task 17) */}
         <button
-          className={`btn ${isMonitoring ? 'btn-danger' : 'btn-primary'}`}
-          onClick={() => onToggleMonitoring(!isMonitoring)}
+          className={`btn ${isRunning ? 'btn-danger' : 'btn-primary'}`}
+          onClick={() => onToggleMonitoring(!isRunning)}
         >
-          {isMonitoring ? (
+          {isRunning ? (
             <>
-              <Square size={14} /> Stop Monitoring
+              <Square size={14} /> Stop Telemetry Loop
             </>
           ) : (
             <>
-              <Play size={14} /> Start Monitoring
+              <Play size={14} /> Start Telemetry Loop
             </>
           )}
         </button>
       </div>
 
       <div className="control-group">
-        {/* Manual Apply & Rollback UI */}
+        {/* Manual Action & Rollback Placeholders */}
         <button
           className="btn btn-secondary"
-          onClick={onApplyAction}
-          disabled={!hasRecommendation}
-          title={hasRecommendation ? "Apply currently recommended parameter" : "No pending recommendation"}
+          disabled
+          style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          title="Manual execution of recommendations will be enabled with DB actions in Phase 3"
         >
-          <CheckCircle size={14} color="#10b981" /> Apply Recommended Action
+          <CheckCircle size={14} color="#10b981" /> Apply Recommendation (Phase 3)
         </button>
 
         <button
           className="btn btn-secondary"
-          onClick={onRollbackAction}
-          title="Roll back to previous parameter value"
+          disabled
+          style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          title="Rollback engine will be active in Phase 3"
         >
-          <RotateCcw size={14} color="#f43f5e" /> Rollback Last Action
+          <RotateCcw size={14} color="#f43f5e" /> Rollback (Phase 3)
         </button>
 
         <div className="control-divider" />
 
-        {/* Refresh button with timestamp */}
+        {/* 5-Second Live Refresh Indicator */}
         <button
           className="btn btn-secondary btn-sm"
           onClick={onManualRefresh}
           disabled={isRefreshing}
-          title="Polling every 5s"
+          title="Polling real telemetry every 5s"
         >
           <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-          {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Refreshing...'}
+          {lastUpdated ? `Refreshed: ${lastUpdated.toLocaleTimeString()}` : 'Refreshing...'}
         </button>
       </div>
     </div>
   );
 }
-

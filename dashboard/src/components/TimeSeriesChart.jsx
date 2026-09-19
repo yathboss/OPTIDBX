@@ -27,6 +27,13 @@ export default function TimeSeriesChart({ historyData = [] }) {
       fillColor: 'rgba(16, 185, 129, 0.15)',
       getValue: (item) => item?.db?.throughput_tps ?? 0,
     },
+    memory: {
+      label: 'Memory Usage',
+      unit: '%',
+      color: '#8b5cf6',
+      fillColor: 'rgba(139, 92, 246, 0.15)',
+      getValue: (item) => item?.os?.memory_percent ?? 0,
+    },
   };
 
   const currentConfig = metricsConfig[metricKey];
@@ -94,6 +101,12 @@ export default function TimeSeriesChart({ historyData = [] }) {
             onClick={() => setMetricKey('throughput')}
           >
             Throughput (TPS)
+          </button>
+          <button
+            className={`chart-tab-btn ${metricKey === 'memory' ? 'active' : ''}`}
+            onClick={() => setMetricKey('memory')}
+          >
+            Memory %
           </button>
         </div>
       </div>

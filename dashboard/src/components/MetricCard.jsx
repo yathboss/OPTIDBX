@@ -8,6 +8,7 @@ export default function MetricCard({
   trend,
   status = 'normal', // 'normal', 'warning', 'critical'
   subtitle,
+  isWaiting = false,
 }) {
   const getBorderColor = () => {
     if (status === 'critical') return 'rgba(244, 63, 94, 0.4)';
@@ -16,9 +17,24 @@ export default function MetricCard({
   };
 
   const getValueColor = () => {
+    if (isWaiting || value === null || value === undefined) return 'var(--text-muted)';
     if (status === 'critical') return 'var(--accent-rose)';
     if (status === 'warning') return 'var(--accent-amber)';
     return 'var(--text-primary)';
+  };
+
+  const displayValue = () => {
+    if (isWaiting) {
+      return (
+        <span style={{ fontSize: '0.95rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Waiting for telemetry...
+        </span>
+      );
+    }
+    if (value === null || value === undefined) {
+      return <span style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>N/A</span>;
+    }
+    return value;
   };
 
   return (
@@ -30,14 +46,16 @@ export default function MetricCard({
 
       <div className="metric-value-row">
         <span className="metric-value" style={{ color: getValueColor() }}>
-          {value !== undefined && value !== null ? value : '--'}
+          {displayValue()}
         </span>
-        {unit && <span className="metric-unit">{unit}</span>}
+        {!isWaiting && value !== null && value !== undefined && unit && (
+          <span className="metric-unit">{unit}</span>
+        )}
       </div>
 
       <div className="metric-footer">
         <span>{subtitle || 'Telemetry Window'}</span>
-        {trend && (
+        {trend && !isWaiting && (
           <span style={{ color: trend.startsWith('+') ? '#f59e0b' : '#10b981', fontWeight: 600 }}>
             {trend}
           </span>
@@ -46,4 +64,3 @@ export default function MetricCard({
     </div>
   );
 }
-

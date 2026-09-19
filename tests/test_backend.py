@@ -114,9 +114,25 @@ class TestOptiDBXBackend(unittest.TestCase):
         detail_res = self.client.get(f"/experiments/{exp_id}")
         self.assertEqual(detail_res.status_code, 200)
         detail = detail_res.json()
-        self.assertEqual(detail["id"], exp_id)
+        self.assertEqual(str(detail["id"]), str(exp_id))
         self.assertIn("before_metrics", detail)
         self.assertIn("overall_result", detail)
+
+    def test_workload_status(self):
+        response = self.client.get("/workload/status")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("running", data)
+        self.assertIsInstance(data["running"], bool)
+
+    def test_os_and_db_history_endpoints(self):
+        os_res = self.client.get("/metrics/os/history?limit=5")
+        self.assertEqual(os_res.status_code, 200)
+        self.assertIsInstance(os_res.json(), list)
+
+        db_res = self.client.get("/metrics/db/history?limit=5")
+        self.assertEqual(db_res.status_code, 200)
+        self.assertIsInstance(db_res.json(), list)
 
 
 if __name__ == "__main__":

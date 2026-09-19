@@ -13,6 +13,7 @@ from backend.routes.experiments import router as experiments_router
 from backend.routes.health import router as health_router
 from backend.routes.metrics import router as metrics_router
 from backend.routes.tuner import router as tuner_router
+from backend.routes.workload import router as workload_router
 from backend.services.live_runtime import get_runtime
 
 
@@ -44,6 +45,7 @@ app.include_router(health_router)
 app.include_router(metrics_router)
 app.include_router(tuner_router)
 app.include_router(experiments_router)
+app.include_router(workload_router)
 
 
 @app.get("/")
