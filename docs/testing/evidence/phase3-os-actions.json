@@ -1,0 +1,123 @@
+{
+  "platform": "linux",
+  "uid": 0,
+  "claim": "Verified mechanics only; no performance improvement claim",
+  "os": {
+    "affinity": {
+      "action_id": "ea72888f-299f-460b-86b4-61d7500ee733",
+      "pid": 409,
+      "create_time": 1789824940.02,
+      "kind": "affinity",
+      "new_value": [
+        0
+      ],
+      "old_value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "status": "APPLIED"
+    },
+    "restore_affinity": {
+      "action_id": "ea72888f-299f-460b-86b4-61d7500ee733",
+      "pid": 409,
+      "create_time": 1789824940.02,
+      "kind": "affinity",
+      "new_value": [
+        0
+      ],
+      "old_value": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "status": "RESTORED"
+    },
+    "nice": {
+      "action_id": "1500d3fd-a203-4cc9-9ce5-25751a56a61e",
+      "pid": 409,
+      "create_time": 1789824940.02,
+      "kind": "nice",
+      "new_value": 5,
+      "old_value": 0,
+      "status": "APPLIED"
+    },
+    "restore_nice": {
+      "action_id": "1500d3fd-a203-4cc9-9ce5-25751a56a61e",
+      "pid": 409,
+      "create_time": 1789824940.02,
+      "kind": "nice",
+      "new_value": 5,
+      "old_value": 0,
+      "status": "RESTORED"
+    },
+    "telemetry_during_actions": [
+      {
+        "timestamp": "2026-09-19T13:35:45.201182Z",
+        "cpu_percent": 0.1,
+        "memory_percent": 7.1,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 577536,
+        "context_switches": 1295
+      },
+      {
+        "timestamp": "2026-09-19T13:35:50.206550Z",
+        "cpu_percent": 0.0,
+        "memory_percent": 7.1,
+        "disk_read_bytes": 77824,
+        "disk_write_bytes": 45056,
+        "context_switches": 427
+      }
+    ],
+    "capabilities": {
+      "affinity": true,
+      "nice": true,
+      "cgroup": {
+        "version": 2,
+        "controllers": [
+          "cpuset",
+          "cpu",
+          "io",
+          "memory",
+          "hugetlb",
+          "pids",
+          "rdma"
+        ],
+        "subtree_control_writable": true,
+        "delegation_verified": false,
+        "apply_supported": false,
+        "reason": "Detection scaffold only; no cgroup writes"
+      },
+      "automatic": false,
+      "allowed_pids": [
+        409
+      ]
+    }
+  }
+}

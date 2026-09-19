@@ -1,0 +1,95 @@
+[
+  {
+    "profile": "LOW",
+    "experiment_id": 9,
+    "samples": [
+      {
+        "timestamp": "2026-09-19T13:26:54.248157Z",
+        "cpu_percent": 5.9,
+        "memory_percent": 7.9,
+        "disk_read_bytes": 71340032,
+        "disk_write_bytes": 100782080,
+        "context_switches": 235692
+      },
+      {
+        "timestamp": "2026-09-19T13:26:59.258759Z",
+        "cpu_percent": 6.1,
+        "memory_percent": 8.3,
+        "disk_read_bytes": 44949504,
+        "disk_write_bytes": 96071680,
+        "context_switches": 257071
+      },
+      {
+        "timestamp": "2026-09-19T13:27:04.263672Z",
+        "cpu_percent": 6.0,
+        "memory_percent": 8.6,
+        "disk_read_bytes": 28364800,
+        "disk_write_bytes": 88395776,
+        "context_switches": 252740
+      }
+    ],
+    "persisted_rows": 3
+  },
+  {
+    "profile": "MEDIUM",
+    "experiment_id": 10,
+    "samples": [
+      {
+        "timestamp": "2026-09-19T13:27:14.303918Z",
+        "cpu_percent": 18.9,
+        "memory_percent": 8.9,
+        "disk_read_bytes": 4706304,
+        "disk_write_bytes": 102596608,
+        "context_switches": 578630
+      },
+      {
+        "timestamp": "2026-09-19T13:27:18.888295Z",
+        "cpu_percent": 19.4,
+        "memory_percent": 8.9,
+        "disk_read_bytes": 339968,
+        "disk_write_bytes": 104243200,
+        "context_switches": 672235
+      },
+      {
+        "timestamp": "2026-09-19T13:27:23.894089Z",
+        "cpu_percent": 19.6,
+        "memory_percent": 8.9,
+        "disk_read_bytes": 73728,
+        "disk_write_bytes": 134791168,
+        "context_switches": 713185
+      }
+    ],
+    "persisted_rows": 3
+  },
+  {
+    "profile": "HIGH",
+    "experiment_id": 11,
+    "samples": [
+      {
+        "timestamp": "2026-09-19T13:27:33.926008Z",
+        "cpu_percent": 38.0,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 119349248,
+        "context_switches": 1173666
+      },
+      {
+        "timestamp": "2026-09-19T13:27:38.932839Z",
+        "cpu_percent": 38.0,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 117481472,
+        "context_switches": 1174272
+      },
+      {
+        "timestamp": "2026-09-19T13:27:43.941022Z",
+        "cpu_percent": 36.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 116621312,
+        "context_switches": 1183178
+      }
+    ],
+    "persisted_rows": 3
+  }
+]
