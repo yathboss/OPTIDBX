@@ -15,6 +15,7 @@ from backend.routes.health import router as health_router
 from backend.routes.metrics import router as metrics_router
 from backend.routes.tuner import router as tuner_router
 from backend.routes.workload import router as workload_router
+from backend.routes.benchmarks import router as benchmarks_router, for_manager
 from backend.services.live_runtime import get_runtime
 
 
@@ -25,7 +26,14 @@ async def lifespan(app):
         from backend.services.workload_service import service_for_runtime
 
         if service_for_runtime.cache_info().currsize:
-            service_for_runtime(get_runtime()).stop()
+            service = service_for_runtime(get_runtime())
+            if service.manager.reservation:
+                benchmark = for_manager(service.manager)
+                benchmark.cancel()
+                if benchmark.thread:
+                    benchmark.thread.join(timeout=25)
+            else:
+                service.stop()
         get_runtime().stop()
 
 
@@ -55,6 +63,10 @@ async def protect_local_controls(request, call_next):
         and request.headers["origin"] not in TRUSTED_ORIGINS
     ):
         return JSONResponse({"detail": "Untrusted browser origin"}, status_code=403)
+    if request.method == 'POST' and request.url.path.startswith(('/workload/', '/tuner/')):
+        from backend.services.workload_service import service_for_runtime
+        if service_for_runtime(get_runtime()).manager.reservation:
+            return JSONResponse({'detail': 'A benchmark owns these controls. Cancel the comparison first.'}, status_code=409)
     return await call_next(request)
 
 
@@ -64,6 +76,7 @@ app.include_router(metrics_router)
 app.include_router(tuner_router)
 app.include_router(experiments_router)
 app.include_router(workload_router)
+app.include_router(benchmarks_router)
 
 
 @app.get("/")
