@@ -1,129 +1,39 @@
-import React from 'react';
-import { FlaskConical, CheckCircle2, Clock, Activity, BarChart2, Layers, Cpu, ShieldCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../services/api';
+import BeforeAfterCard from './BeforeAfterCard';
+import TimeSeriesChart from './TimeSeriesChart';
 
-export default function EvaluationView({ experiments = [] }) {
-  return (
-    <div>
-      {/* Title & Description */}
-      <div className="section-title">
-        <FlaskConical size={18} color="var(--accent-purple)" />
-        Phase 2 Evaluation: Workload Baselines & Performance Benchmarks
-      </div>
-      <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-        In Phase 2, evaluation focuses on measuring and establishing reliable <strong>baseline metrics</strong> across standard workload profiles (LOW, MEDIUM, HIGH) before autotuner actuation is engaged.
-      </p>
-
-      {/* Baseline Experiments Table (Task 21) */}
-      <div className="data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Experiment ID</th>
-              <th>Workload Profile</th>
-              <th>Status</th>
-              <th>Duration</th>
-              <th>Avg Latency</th>
-              <th>Avg Throughput</th>
-              <th>Avg CPU</th>
-              <th>Active Workers</th>
-            </tr>
-          </thead>
-          <tbody>
-            {experiments.map((exp) => {
-              const metrics = exp.before_metrics || {};
-              const isRunning = exp.status === 'RUNNING';
-
-              return (
-                <tr key={exp.id}>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                    #{exp.id}
-                  </td>
-                  <td>
-                    <span className="badge badge-blue" style={{ textTransform: 'uppercase' }}>
-                      {exp.workload_type}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${isRunning ? 'badge-amber' : 'badge-green'}`}>
-                      {isRunning ? <Clock size={12} /> : <CheckCircle2 size={12} />}
-                      {exp.status}
-                    </span>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
-                    {exp.duration_seconds ? `${exp.duration_seconds}s` : '--'}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#f59e0b' }}>
-                    {metrics.query_latency_ms ? `${metrics.query_latency_ms} ms` : 'Waiting...'}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#10b981' }}>
-                    {metrics.throughput_tps ? `${metrics.throughput_tps} TPS` : 'Waiting...'}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: '#93c5fd' }}>
-                    {metrics.cpu_percent ? `${metrics.cpu_percent}%` : '--'}
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-mono)' }}>
-                    {metrics.active_workers ?? '--'}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Phase 2 Development & Roadmap Progress Section (Task 29) */}
-      <div className="summary-card" style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <ShieldCheck size={18} color="var(--accent-green)" />
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-            OptiDBX Project Roadmap & Integration Matrix
-          </span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
-          {/* Completed */}
-          <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-green)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-              ✓ Phase 2 Completed Features
-            </div>
-            <ul style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: '1.7' }}>
-              <li>Continuous OS telemetry (CPU, RAM, Disk I/O, Context Switches)</li>
-              <li>PostgreSQL DBMS telemetry (latency, TPS, workers, temp spill)</li>
-              <li>Real-time telemetry coordinator with time-skew protection</li>
-              <li>Rule-based CPU contention detection (3 consecutive bad samples)</li>
-              <li>Explainable recommendation engine & PostgreSQL persistence</li>
-              <li>Live FastAPI & React dashboard integration (5s polling)</li>
-            </ul>
-          </div>
-
-          {/* In Progress */}
-          <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-amber)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-              ⚡ In Progress / Staging
-            </div>
-            <ul style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: '1.7' }}>
-              <li>Full end-to-end pgbench workload runner automation</li>
-              <li>PostgreSQL <code>pg_stat_statements</code> interval reset synchronization</li>
-              <li>Multi-client concurrent stress testing in WSL2</li>
-            </ul>
-          </div>
-
-          {/* Phase 3 Planned */}
-          <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-blue)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-              🎯 Phase 3 Planned Actuation
-            </div>
-            <ul style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', paddingLeft: '1.25rem', lineHeight: '1.7' }}>
-              <li>Automated parameter tuning (<code>max_parallel_workers_per_gather</code>)</li>
-              <li>30-second observation window and KEEP / ROLLBACK loop</li>
-              <li>Memory pressure and <code>work_mem</code> temporary-file tuning</li>
-              <li>OS-level process priority (<code>nice</code>) & cgroups CPU limits</li>
-              <li>Static vs OptiDBX benchmark performance comparative reports</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+export default function EvaluationView({experiments, error}) {
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [detailError, setDetailError] = useState(null);
+  useEffect(() => {
+    if (selected === null) return;
+    let cancelled = false;
+    Promise.all([api.getExperimentDetail(selected), api.getMetricsHistory(100, selected)]).then(([result, series]) => {
+      if (cancelled) return;
+      setDetail(result.data);
+      setHistory(series.data || []);
+      setDetailError(result.status === 200 ? (series.status === 200 ? null : series.message) : result.message);
+    });
+    return () => {cancelled = true;};
+  }, [selected, experiments]);
+  return <section>
+    <h2 className="section-title">Recorded experiments</h2>
+    <p>Measurements come from PostgreSQL storage. Baseline runs have no applied-action comparison.</p>
+    {error && <p role="alert">{error}</p>}
+    {!error && !experiments.length && <p>No experiments recorded yet. Start a workload to record one.</p>}
+    <div className="table-container"><table className="data-table"><thead><tr><th>Run</th><th>Profile</th><th>Status</th><th>Duration</th><th>Results</th></tr></thead>
+      <tbody>{experiments.map(run => <tr key={run.id}><td>#{run.id} {run.name}</td><td>{run.workload_type}</td>
+        <td>{run.status}</td><td>{run.duration_seconds === null ? 'In progress' : `${run.duration_seconds}s`}</td>
+        <td><button className="btn btn-secondary" onClick={() => {setSelected(run.id); setDetail(null);}}>View run {run.id}</button></td></tr>)}</tbody>
+    </table></div>
+    {detailError && <p role="alert">{detailError}</p>}
+    {detail && <div><h3>Run #{detail.id}: {detail.overall_result}</h3>
+      <p>Whole-run averages: latency {detail.aggregate_metrics?.query_latency_ms?.toFixed(2) ?? 'Unavailable'} ms | throughput {detail.aggregate_metrics?.throughput_tps?.toFixed(2) ?? 'Unavailable'} TPS</p>
+      {detail.actions?.length ? detail.actions.map(action => <BeforeAfterCard key={action.action_id} action={action}/>) : <p>No tuning action was applied in this run.</p>}
+      <TimeSeriesChart historyData={history}/>
+    </div>}
+  </section>;
 }
-

@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from autotuner.runtime import AutotunerRuntime
 from backend.models.metrics import CurrentMetricsResponse
 from backend.models.tuner import TunerStatusResponse, TuningActionItem
-from db_monitor.storage import save_action_event, save_recommendation
+from db_monitor.storage import save_action_event, save_db_metrics, save_recommendation
 from os_monitor.storage import save_system_metrics
 
 
@@ -17,6 +17,7 @@ def get_runtime():
         recommendation_store=save_recommendation,
         action_store=save_action_event,
         os_store=save_system_metrics,
+        db_store=save_db_metrics,
     )
 
 
@@ -53,6 +54,7 @@ class LiveTunerProvider:
             cooldown_remaining_seconds=status.cooldown_remaining_seconds,
             recovery_required=status.recovery_required,
             os_persistence_status=status.os_persistence_status,
+            db_persistence_status=status.db_persistence_status,
         )
 
     def set_mode(self, mode):
@@ -118,17 +120,26 @@ class LiveTunerProvider:
                     )
                     rows = list(cur.fetchall())
                     items = []
+                    seen = set()
                     for r in rows:
                         bottleneck = "CPU_PARALLELISM"
                         reason_text = r["reason"]
+                        envelope = {}
                         try:
                             envelope = json.loads(r["reason"])
                             bottleneck = envelope.get("bottleneck", bottleneck)
                             reason_text = envelope.get("reason", reason_text)
                         except Exception:
                             pass
+                        action_id = envelope.get("action_id")
+                        if action_id and action_id in seen:
+                            continue
+                        seen.add(action_id)
                         items.append(
                             TuningActionItem(
+                                action_id=action_id,
+                                before_metrics=envelope.get("before"),
+                                after_metrics=envelope.get("after"),
                                 timestamp=r["timestamp"].isoformat()
                                 if hasattr(r["timestamp"], "isoformat")
                                 else str(r["timestamp"]),
@@ -136,17 +147,15 @@ class LiveTunerProvider:
                                 parameter=r["parameter"],
                                 old_value=r["old_value"],
                                 new_value=r["new_value"],
-                                status=r["status"],
+                                status=envelope.get("outcome", r["status"]),
                                 reason=reason_text,
                             )
                         )
                     return items
             finally:
                 conn.close()
-        except Exception:
-            pass
-
-        return []
+        except Exception as exc:
+            raise HTTPException(503, "Action history storage unavailable") from exc
 
 
 class LiveMetricsProvider:

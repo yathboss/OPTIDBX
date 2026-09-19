@@ -1,5 +1,28 @@
 # OptiDBX
 
+## Safe V1 - current runnable version
+
+Local workload controls, real OS/PostgreSQL telemetry and history, safe parallelism
+recommendation/auto modes, manual approval and rollback, and a connected dashboard
+are implemented. Startup remains recommendation-only. Only explicitly owned
+workload sessions can be tuned.
+
+**Start here:** [setup, usage, safety, APIs and Git handoff](docs/safe_v1.md).
+[Validation and real evidence](docs/testing/safe_v1.md) include an observed full
+apply/observe/rollback/cooldown cycle; this is not a claim of improved performance.
+
+In this Windows workspace, run `scripts/start_v1.ps1` for the WSL API and
+`scripts/start_v1.ps1 -Dashboard` in another terminal, then open
+<http://localhost:3000>. Both use the existing local installation.
+
+Development Phase 1 foundations, Phase 2 real telemetry/recommendations, Phase 3
+safe actions, and the safe V1 dashboard/evaluation integration are delivered.
+Automatic OS tuning, additional DB parameters, ML, and public deployment remain
+outside this release. Original contributor work and authorship remain in Git.
+
+**Historical notes below:** these describe earlier milestones and the original
+research roadmap. Use the linked Safe V1 guide for current behavior and commands.
+
 ## Phase 3 — local integration
 
 The runtime now supports a verified DB action lifecycle on an explicitly bound

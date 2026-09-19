@@ -1,0 +1,367 @@
+﻿{
+    "value":  [
+                  {
+                      "action":  {
+                                     "action_id":  "7485f8bc-4756-4fca-a984-b382a1f0e29c",
+                                     "action_type":  "REDUCE_DB_PARALLELISM",
+                                     "target":  "postgresql",
+                                     "parameter":  "max_parallel_workers_per_gather",
+                                     "direction":  "decrease",
+                                     "old_value":  2,
+                                     "new_value":  1,
+                                     "reason":  "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+                                     "status":  "RECOMMENDED",
+                                     "timestamp":  "2026-09-19T14:11:56.466943Z"
+                                 },
+                      "before":  {
+                                     "query_latency_ms":  575.7486666666666,
+                                     "throughput_tps":  74.87,
+                                     "cpu_percent":  98.76666666666667,
+                                     "memory_percent":  8.966666666666667,
+                                     "disk_read_bytes":  46011733.333333336,
+                                     "disk_write_bytes":  207530.66666666666
+                                 },
+                      "after":  {
+                                    "query_latency_ms":  695.7728333333333,
+                                    "throughput_tps":  52.998333333333335,
+                                    "cpu_percent":  99.9,
+                                    "memory_percent":  9.433333333333334,
+                                    "disk_read_bytes":  0,
+                                    "disk_write_bytes":  121514.66666666667
+                                },
+                      "automatic":  true,
+                      "transitions":  [
+                                          "RECOMMENDATION_READY",
+                                          "ACTION_APPLIED",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "ROLLBACK",
+                                          "COOLDOWN",
+                                          "MONITORING"
+                                      ],
+                      "scope":  {
+                                    "available":  true,
+                                    "scope":  "bound_workload_group",
+                                    "workload_id":  "experiment-13",
+                                    "sessions":  [
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-0",
+                                                         "backend_pid":  464,
+                                                         "backend_start":  "2026-09-19 14:11:41.375041+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-1",
+                                                         "backend_pid":  465,
+                                                         "backend_start":  "2026-09-19 14:11:41.386768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-2",
+                                                         "backend_pid":  466,
+                                                         "backend_start":  "2026-09-19 14:11:41.389290+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-3",
+                                                         "backend_pid":  467,
+                                                         "backend_start":  "2026-09-19 14:11:41.391611+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-4",
+                                                         "backend_pid":  468,
+                                                         "backend_start":  "2026-09-19 14:11:41.393879+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-5",
+                                                         "backend_pid":  469,
+                                                         "backend_start":  "2026-09-19 14:11:41.395788+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-6",
+                                                         "backend_pid":  470,
+                                                         "backend_start":  "2026-09-19 14:11:41.399768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-7",
+                                                         "backend_pid":  471,
+                                                         "backend_start":  "2026-09-19 14:11:41.402483+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-8",
+                                                         "backend_pid":  472,
+                                                         "backend_start":  "2026-09-19 14:11:41.406287+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-9",
+                                                         "backend_pid":  473,
+                                                         "backend_start":  "2026-09-19 14:11:41.408430+00:00"
+                                                     }
+                                                 ]
+                                },
+                      "experiment_id":  13,
+                      "reason":  "Degraded or insufficient improvement across observation metrics",
+                      "state":  "MONITORING",
+                      "outcome":  "ROLLBACK"
+                  },
+                  {
+                      "action":  {
+                                     "action_id":  "ac1f5d8f-8061-4a93-9357-f92d97f2921e",
+                                     "action_type":  "REDUCE_DB_PARALLELISM",
+                                     "target":  "postgresql",
+                                     "parameter":  "max_parallel_workers_per_gather",
+                                     "direction":  "decrease",
+                                     "old_value":  2,
+                                     "new_value":  1,
+                                     "reason":  "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+                                     "status":  "RECOMMENDED",
+                                     "timestamp":  "2026-09-19T14:13:16.093081Z"
+                                 },
+                      "before":  {
+                                     "query_latency_ms":  770.6823333333333,
+                                     "throughput_tps":  50.596666666666664,
+                                     "cpu_percent":  99.86666666666667,
+                                     "memory_percent":  9.466666666666667,
+                                     "disk_read_bytes":  0,
+                                     "disk_write_bytes":  96938.66666666667
+                                 },
+                      "after":  {
+                                    "query_latency_ms":  765.5866666666667,
+                                    "throughput_tps":  47.2,
+                                    "cpu_percent":  99.9,
+                                    "memory_percent":  9.483333333333334,
+                                    "disk_read_bytes":  0,
+                                    "disk_write_bytes":  120149.33333333333
+                                },
+                      "automatic":  true,
+                      "transitions":  [
+                                          "RECOMMENDATION_READY",
+                                          "ACTION_APPLIED",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "OBSERVING",
+                                          "ROLLBACK",
+                                          "COOLDOWN",
+                                          "MONITORING"
+                                      ],
+                      "scope":  {
+                                    "available":  true,
+                                    "scope":  "bound_workload_group",
+                                    "workload_id":  "experiment-13",
+                                    "sessions":  [
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-0",
+                                                         "backend_pid":  464,
+                                                         "backend_start":  "2026-09-19 14:11:41.375041+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-1",
+                                                         "backend_pid":  465,
+                                                         "backend_start":  "2026-09-19 14:11:41.386768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-2",
+                                                         "backend_pid":  466,
+                                                         "backend_start":  "2026-09-19 14:11:41.389290+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-3",
+                                                         "backend_pid":  467,
+                                                         "backend_start":  "2026-09-19 14:11:41.391611+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-4",
+                                                         "backend_pid":  468,
+                                                         "backend_start":  "2026-09-19 14:11:41.393879+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-5",
+                                                         "backend_pid":  469,
+                                                         "backend_start":  "2026-09-19 14:11:41.395788+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-6",
+                                                         "backend_pid":  470,
+                                                         "backend_start":  "2026-09-19 14:11:41.399768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-7",
+                                                         "backend_pid":  471,
+                                                         "backend_start":  "2026-09-19 14:11:41.402483+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-8",
+                                                         "backend_pid":  472,
+                                                         "backend_start":  "2026-09-19 14:11:41.406287+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-9",
+                                                         "backend_pid":  473,
+                                                         "backend_start":  "2026-09-19 14:11:41.408430+00:00"
+                                                     }
+                                                 ]
+                                },
+                      "experiment_id":  13,
+                      "reason":  "Degraded or insufficient improvement across observation metrics",
+                      "state":  "MONITORING",
+                      "outcome":  "ROLLBACK"
+                  },
+                  {
+                      "action":  {
+                                     "action_id":  "18ee6912-1118-4b80-b891-34f2d11ccfcc",
+                                     "action_type":  "REDUCE_DB_PARALLELISM",
+                                     "target":  "postgresql",
+                                     "parameter":  "max_parallel_workers_per_gather",
+                                     "direction":  "decrease",
+                                     "old_value":  2,
+                                     "new_value":  1,
+                                     "reason":  "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+                                     "status":  "RECOMMENDED",
+                                     "timestamp":  "2026-09-19T14:14:35.229102Z"
+                                 },
+                      "before":  {
+                                     "query_latency_ms":  825.8493333333333,
+                                     "throughput_tps":  49.8,
+                                     "cpu_percent":  99.73333333333333,
+                                     "memory_percent":  9.5,
+                                     "disk_read_bytes":  0,
+                                     "disk_write_bytes":  65536
+                                 },
+                      "after":  null,
+                      "automatic":  true,
+                      "transitions":  [
+                                          "RECOMMENDATION_READY",
+                                          "ACTION_APPLIED",
+                                          "ROLLBACK"
+                                      ],
+                      "scope":  {
+                                    "available":  true,
+                                    "scope":  "bound_workload_group",
+                                    "workload_id":  "experiment-13",
+                                    "sessions":  [
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-0",
+                                                         "backend_pid":  464,
+                                                         "backend_start":  "2026-09-19 14:11:41.375041+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-1",
+                                                         "backend_pid":  465,
+                                                         "backend_start":  "2026-09-19 14:11:41.386768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-2",
+                                                         "backend_pid":  466,
+                                                         "backend_start":  "2026-09-19 14:11:41.389290+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-3",
+                                                         "backend_pid":  467,
+                                                         "backend_start":  "2026-09-19 14:11:41.391611+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-4",
+                                                         "backend_pid":  468,
+                                                         "backend_start":  "2026-09-19 14:11:41.393879+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-5",
+                                                         "backend_pid":  469,
+                                                         "backend_start":  "2026-09-19 14:11:41.395788+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-6",
+                                                         "backend_pid":  470,
+                                                         "backend_start":  "2026-09-19 14:11:41.399768+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-7",
+                                                         "backend_pid":  471,
+                                                         "backend_start":  "2026-09-19 14:11:41.402483+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-8",
+                                                         "backend_pid":  472,
+                                                         "backend_start":  "2026-09-19 14:11:41.406287+00:00"
+                                                     },
+                                                     {
+                                                         "available":  true,
+                                                         "scope":  "bound_workload_session",
+                                                         "workload_id":  "experiment-13-9",
+                                                         "backend_pid":  473,
+                                                         "backend_start":  "2026-09-19 14:11:41.408430+00:00"
+                                                     }
+                                                 ]
+                                },
+                      "experiment_id":  13,
+                      "reason":  "Monitoring stopped",
+                      "state":  "ROLLBACK",
+                      "outcome":  "ROLLBACK"
+                  }
+              ],
+    "Count":  3
+}

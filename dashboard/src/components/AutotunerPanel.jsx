@@ -27,7 +27,7 @@ export default function AutotunerPanel({ tunerStatus }) {
     <div className="autotuner-panel">
       <div className="section-title">
         <Sparkles size={18} color="#8b5cf6" />
-        Autotuner Engine & Bottleneck Analysis (Yatharth - Dev 1)
+        Autotuner Engine & Bottleneck Analysis
       </div>
 
       <div className="autotuner-grid">
@@ -43,7 +43,7 @@ export default function AutotunerPanel({ tunerStatus }) {
                   State: {tunerStatus?.state || 'MONITORING'}
                 </span>
                 <span className={`badge ${isBottleneck ? 'badge-amber' : 'badge-green'}`}>
-                  {isBottleneck ? 'BOTTLENECK DETECTED' : 'NORMAL OPERATION'}
+                  {!tunerStatus?.telemetry_available ? 'TELEMETRY UNAVAILABLE' : isBottleneck ? 'BOTTLENECK DETECTED' : 'NORMAL OPERATION'}
                 </span>
               </div>
             </div>
@@ -53,7 +53,7 @@ export default function AutotunerPanel({ tunerStatus }) {
             </div>
 
             <div className="bottleneck-reason" style={{ fontSize: '0.9rem', lineHeight: '1.6', marginBottom: '1rem' }}>
-              {tunerStatus?.reason || 'Workload telemetry within safe operating boundaries.'}
+              {tunerStatus?.reason || 'Waiting for fresh telemetry.'}
             </div>
 
             {/* 3-Reading Confirmation Progress (Task 14) */}
@@ -86,7 +86,7 @@ export default function AutotunerPanel({ tunerStatus }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem' }}>
                   {evidence.cpu_percent !== undefined && (
-                    <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>CPU: </span>
                       <strong style={{ fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>{evidence.cpu_percent}%</strong>
                     </div>
@@ -150,6 +150,9 @@ export default function AutotunerPanel({ tunerStatus }) {
                 Operational Mode & Safety Guardrails
               </div>
 
+                    <p>Observation: {tunerStatus?.observation_remaining_seconds || 0}s | Cooldown: {tunerStatus?.cooldown_remaining_seconds || 0}s</p>
+              {tunerStatus?.active_action && <p>Last action: {tunerStatus.active_action.outcome || tunerStatus.active_action.state}</p>}
+              <p>{tunerStatus?.capabilities?.available ? 'Owned workload connected' : 'Automatic tuning unavailable: start an owned workload'}</p>
               <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)', marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Active Mode:</span>
@@ -158,7 +161,7 @@ export default function AutotunerPanel({ tunerStatus }) {
                   </span>
                 </div>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Phase 2 operates strictly in <strong>Recommendation Mode</strong>. No PostgreSQL settings are automatically modified.
+                  Recommendation mode waits for approval. Auto-tuning adjusts only parallelism on owned workload sessions, with verified rollback and one action at a time.
                 </p>
               </div>
 
@@ -167,10 +170,10 @@ export default function AutotunerPanel({ tunerStatus }) {
                   Persistence Status
                 </div>
                 <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
-                  DB Record: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong>
+                  Action audit: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  Action stored in <code>tuning_actions</code> PostgreSQL table upon confirmation.
+                  OS storage: {tunerStatus?.os_persistence_status} | DB storage: {tunerStatus?.db_persistence_status}
                 </div>
               </div>
             </div>

@@ -2,14 +2,16 @@
 
 Exposes live and historical OS and DBMS metrics adhering to the agreed team contract.
 """
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, Query
+
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
 from backend.models.metrics import CurrentMetricsResponse
 from backend.services.metrics_service import MetricsService, get_metrics_service
-from os_monitor.storage import get_os_metrics_history
-from os_monitor.storage import get_latest_os_metrics
-from os_monitor.health import run_health_check
 from db_monitor.storage import get_recent_db_metrics
+from os_monitor.health import run_health_check
+from os_monitor.storage import get_latest_os_metrics, get_os_metrics_history
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -33,32 +35,36 @@ def get_current_metrics(
     return metrics_service.get_current_metrics()
 
 
-@router.get("/history", response_model=List[CurrentMetricsResponse])
+@router.get("/history", response_model=list[CurrentMetricsResponse])
 def get_metrics_history(
-    experiment_id: Optional[int] = Query(default=None, description="Filter by experiment run ID"),
+    experiment_id: int | None = Query(default=None, description="Filter by experiment run ID"),
     limit: int = Query(default=20, ge=1, le=100),
     metrics_service: MetricsService = Depends(get_metrics_service),
-) -> List[CurrentMetricsResponse]:
+) -> list[CurrentMetricsResponse]:
     """Returns recent time-series telemetry data points for charting."""
+    if experiment_id is not None:
+        from backend.services.history import recorded_history
+
+        return recorded_history(experiment_id, limit)
     return metrics_service.get_metrics_history(limit=limit)
 
 
-@router.get("/os/history", response_model=List[Dict[str, Any]])
+@router.get("/os/history", response_model=list[dict[str, Any]])
 def get_os_history(
-    experiment_id: Optional[int] = Query(default=None, description="Filter by experiment ID"),
+    experiment_id: int | None = Query(default=None, description="Filter by experiment ID"),
     limit: int = Query(default=20, ge=1, le=120),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Returns recent OS telemetry samples from system_metrics storage or memory buffer."""
     return get_os_metrics_history(experiment_id=experiment_id, limit=limit)
 
 
-@router.get("/db/history", response_model=List[Dict[str, Any]])
+@router.get("/db/history", response_model=list[dict[str, Any]])
 def get_db_history(
-    experiment_id: Optional[int] = Query(default=None, description="Filter by experiment ID"),
+    experiment_id: int | None = Query(default=None, description="Filter by experiment ID"),
     limit: int = Query(default=20, ge=1, le=120),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Returns recent DBMS telemetry samples from db_metrics storage."""
     try:
         return get_recent_db_metrics(experiment_id=experiment_id, limit=limit)
-    except Exception:
-        return []
+    except Exception as exc:
+        raise HTTPException(503, "DB telemetry storage unavailable") from exc

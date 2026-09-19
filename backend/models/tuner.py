@@ -15,6 +15,7 @@ class TunerStatusResponse(BaseModel):
     capabilities: dict = Field(default_factory=dict)
     recovery_required: bool = False
     os_persistence_status: str = "NOT_REQUESTED"
+    db_persistence_status: str = "NOT_REQUESTED"
     evidence: dict = Field(default_factory=dict)
     recommendation: TuningAction | None = None
     telemetry_available: bool = False

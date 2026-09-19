@@ -1,0 +1,32 @@
+name: Safe V1 verification
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest -q --cov=autotuner --cov=actions --cov=config --cov=workload.managed --cov=workload.runner
+      - run: npm ci
+        working-directory: dashboard
+      - run: npm test && npm run build && npm audit
+        working-directory: dashboard
+      - run: npx playwright install --with-deps chromium
+        working-directory: dashboard
+      - run: npm run test:e2e
+        working-directory: dashboard
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-failure
+          path: dashboard/test-results/

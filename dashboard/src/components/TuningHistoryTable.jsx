@@ -27,8 +27,8 @@ export default function TuningHistoryTable({ history = [] }) {
         </thead>
         <tbody>
           {history.map((item, idx) => {
-            const isKept = item.status === 'KEPT';
-            const isRolledBack = item.status === 'ROLLED_BACK';
+            const isKept = ['KEEP', 'KEPT'].includes(item.status);
+            const isRolledBack = ['ROLLBACK', 'ROLLED_BACK', 'ROLLBACK_FAILED'].includes(item.status);
 
             return (
               <tr key={idx}>

@@ -58,6 +58,8 @@ database:
 
 workload:
   default_tool: pgbench
+  # API-owned sessions; external pgbench remains monitor-only.
+  managed_clients: {LOW: 1, MEDIUM: 4, HIGH: 10}
   profiles:
     LOW:
       clients: 2

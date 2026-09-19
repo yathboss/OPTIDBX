@@ -101,10 +101,12 @@ class ActionLifecycle:
         return self.executor.capabilities()
 
     def _journal(self):
+        with self.lock:
+            snapshot = deepcopy(self.record)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_suffix(".tmp")
         with temp.open("w", encoding="utf-8") as handle:
-            json.dump(self.record, handle)
+            json.dump(snapshot, handle)
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp, self.path)
@@ -112,7 +114,9 @@ class ActionLifecycle:
     def _save(self):
         if self.store is None:
             raise ValueError("Action audit storage is unavailable")
-        self.store(deepcopy(self.record), experiment_id=self.experiment_id)
+        with self.lock:
+            snapshot = deepcopy(self.record)
+        self.store(snapshot, experiment_id=self.experiment_id)
         self.persistence = "SAVED"
 
     def _transition(self, state):
@@ -170,6 +174,9 @@ class ActionLifecycle:
             self.record = {
                 "action": action.model_dump(mode="json"),
                 "before": before,
+                "baseline_samples": len(baseline),
+                "baseline_started_at": times[0].isoformat(),
+                "baseline_ended_at": times[-1].isoformat(),
                 "after": None,
                 "automatic": automatic,
                 "transitions": [],
@@ -200,6 +207,7 @@ class ActionLifecycle:
             if self.executor.read() != action["new_value"]:
                 raise ValueError("Apply verification failed")
             with self.lock:
+                self.record["verified_applied_value"] = action["new_value"]
                 self.applied_at = self.clock()
                 self.last_received = self.applied_at
                 self.deadline = self.applied_at + self.config.tuning.observation_window_seconds
@@ -281,7 +289,10 @@ class ActionLifecycle:
             self._rollback("Insufficient observation evidence")
             return
         after = summarize(self.after)
-        self.record["after"] = after
+        with self.lock:
+            self.record["after"] = after
+            self.record["observation_samples"] = len(self.after)
+            self.record["observation_elapsed_seconds"] = self.clock() - self.applied_at
         before = self.record["before"]
         cfg = self.config.tuning
         evaluation = PerformanceEvaluator(cfg.improvement_percent, cfg.improvement_percent).compare(
@@ -325,9 +336,10 @@ class ActionLifecycle:
     def _finish(self, state, reason):
         if state == "KEEP" and self.cancel_requested:
             raise ValueError("Observation was interrupted")
-        self.record["reason"] = reason
-        self.record["outcome"] = state
-        self._transition(state)
+        with self.lock:
+            self.record["reason"] = reason
+            self.record["outcome"] = state
+            self._transition(state)
         try:
             self._save()
         except Exception:
@@ -352,11 +364,14 @@ class ActionLifecycle:
             self.executor.restore(action["old_value"], action["new_value"])
             if self.executor.read() != action["old_value"]:
                 raise ValueError("Rollback effective value verification failed")
+            with self.lock:
+                self.record["verified_restored_value"] = action["old_value"]
             self._finish("ROLLBACK", reason)
         except Exception as exc:
             self.error = f"Rollback failed: {type(exc).__name__}: {exc}"
-            self.record["reason"] = self.error
-            self._transition("ROLLBACK_FAILED")
+            with self.lock:
+                self.record["reason"] = self.error
+                self._transition("ROLLBACK_FAILED")
             try:
                 self._journal()
                 self._save()
@@ -393,6 +408,18 @@ class ActionLifecycle:
 
     def status(self):
         with self.lock:
+            if (
+                self.state in ("KEEP", "ROLLBACK", "FAILED", "COOLDOWN")
+                and self.cooldown_end is not None
+                and self.clock() >= self.cooldown_end
+                and (self.future is None or self.future.done())
+            ):
+                if self.state != "COOLDOWN":
+                    self._transition("COOLDOWN")
+                self._transition("MONITORING")
+                if self.owner:
+                    self.gate.release(self.owner)
+                    self.owner = None
             return {
                 "state": self.state,
                 "last_error": self.error,

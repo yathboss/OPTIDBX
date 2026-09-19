@@ -72,7 +72,7 @@ export default function Header({ activeTab, setActiveTab, isLive, isWaiting, tel
 
       <div className="header-right">
         <div className="badge badge-blue">
-          Recommendation Mode
+          Safe V1
         </div>
         {getConnectionBadge()}
       </div>

@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 
 from autotuner.engine import AutotunerEngine
 from autotuner.lifecycle import ActionLifecycle
-from autotuner.models import OSMetrics
+from autotuner.models import DBMetrics, OSMetrics
 from autotuner.telemetry_coordinator import TelemetryCoordinator
 from config.config_loader import load_config
 
@@ -31,6 +31,7 @@ class AutotunerRuntime:
         action_gate=None,
         journal_path=None,
         os_store=None,
+        db_store=None,
     ):
         self.config = config or load_config()
         self.engine = AutotunerEngine(self.config)
@@ -48,6 +49,7 @@ class AutotunerRuntime:
         self._history = deque(maxlen=self.config.monitoring.history_size)
         self._actions = deque(maxlen=self.config.monitoring.history_size)
         self._last_saved = None
+        self._last_sample_lifecycle_state = "MONITORING"
         self._persistence = "NOT_REQUESTED"
         self.mode = "recommendation"
         self.db_executor = db_executor
@@ -61,6 +63,9 @@ class AutotunerRuntime:
         )
         self._action_error = None
         self.os_store = os_store
+        self.db_store = db_store
+        self._db_storage_future = None
+        self._db_persistence = "NOT_REQUESTED"
         self._os_persistence = "NOT_REQUESTED"
         self._telemetry_pool = ThreadPoolExecutor(
             max_workers=1, thread_name_prefix="TelemetryStorage"
@@ -103,6 +108,7 @@ class AutotunerRuntime:
                 os_metrics = self.os_collector.collect_sample()
                 self._persist_os(OSMetrics.model_validate(os_metrics))
                 db_metrics = self.db_collector.collect()
+                self._persist_db(DBMetrics.model_validate(db_metrics))
                 telemetry = self.coordinator.combine(os_metrics, db_metrics, now=self.clock())
             except Exception as exc:
                 self._invalidate(f"Telemetry unavailable: {type(exc).__name__}")
@@ -127,7 +133,7 @@ class AutotunerRuntime:
             with self._lock:
                 if self._stop.is_set():
                     return None
-                prior_state = self.lifecycle.status()["state"]
+                prior_state = self._last_sample_lifecycle_state
                 self.lifecycle.advance(telemetry, now=self.clock())
                 if prior_state != "MONITORING":
                     # Confirmation must start again after cooldown; no stacked evidence.
@@ -178,6 +184,7 @@ class AutotunerRuntime:
                         self._action_error = None
                     except ValueError as exc:
                         self._action_error = str(exc)
+                self._last_sample_lifecycle_state = self.lifecycle.status()["state"]
                 return result
 
     def _persist_os(self, sample):
@@ -204,6 +211,29 @@ class AutotunerRuntime:
     def flush_telemetry(self):
         if self._storage_future is not None:
             self._storage_future.result(timeout=10)
+        if self._db_storage_future is not None:
+            self._db_storage_future.result(timeout=10)
+
+    def _persist_db(self, sample):
+        if self.db_store is None:
+            return
+        if self._db_storage_future is not None and not self._db_storage_future.done():
+            self._db_persistence = "BACKPRESSURE"
+            return
+        experiment_id = self.experiment_id
+
+        def persist():
+            try:
+                payload = sample.model_dump() if hasattr(sample, "model_dump") else dict(sample)
+                self.db_store(payload, experiment_id=experiment_id)
+                self._db_persistence = "SAVED"
+            except Exception:
+                self._db_persistence = "FAILED"
+                logger.warning(
+                    "DB telemetry persistence failed", extra={"event": "db_storage_failed"}
+                )
+
+        self._db_storage_future = self._telemetry_pool.submit(persist)
 
     def set_mode(self, mode):
         if mode not in ("auto", "recommendation"):
@@ -225,8 +255,26 @@ class AutotunerRuntime:
                 or str(action.action_id) != str(action_id)
             ):
                 raise ValueError("Unknown or stale recommendation")
+            # The detector retains a stable recommendation ID while readings stay bad.
+            # Revalidate against the newest interval, not its original creation time.
+            action = action.model_copy(update={"timestamp": self._history[-1].timestamp})
             self.lifecycle.approve(action, list(self._history), now=self.clock())
         return self.get_status()
+
+    def bind_workload(self, executor, experiment_id):
+        """Only the stopped local owner can bind; recovery cannot be bypassed."""
+        with self._lock, self.lifecycle.lock:
+            if (self._thread is not None and self._thread.is_alive()) or self.lifecycle.status()[
+                "state"
+            ] != "MONITORING":
+                raise ValueError("Stop monitoring and resolve recovery/cooldown before binding")
+            self.db_executor = executor
+            self.lifecycle.executor = executor
+            self.lifecycle.record = None  # Prior records remain in the action history.
+            self.experiment_id = self.lifecycle.experiment_id = experiment_id
+            self.mode = "recommendation"
+            self._history.clear()
+            self.engine = AutotunerEngine(self.config)
 
     def rollback(self, action_id):
         self.lifecycle.rollback(action_id)
@@ -251,8 +299,10 @@ class AutotunerRuntime:
                 "mode": self.mode,
                 "capabilities": self.lifecycle.capabilities(),
                 "os_persistence_status": self._os_persistence,
+                "db_persistence_status": self._db_persistence,
             }
             lifecycle = self.lifecycle.status()
+            updates["active_action"] = lifecycle["active_action"]
             if lifecycle["state"] != "MONITORING":
                 updates.update(lifecycle)
             elif self._action_error:

@@ -7,6 +7,7 @@ Initializes the PostgreSQL database and executes schema.sql.
 import os
 import sys
 from pathlib import Path
+
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -22,9 +23,9 @@ def get_db_config():
         "port": int(os.environ.get("POSTGRES_PORT", 5432)),
         "db": os.environ.get("POSTGRES_DB", "optidbx"),
         "user": os.environ.get("POSTGRES_USER", "postgres"),
-        "password": os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        "password": os.environ.get("POSTGRES_PASSWORD"),
         "admin_user": os.environ.get("POSTGRES_ADMIN_USER", "postgres"),
-        "admin_password": os.environ.get("POSTGRES_ADMIN_PASSWORD", "postgres"),
+        "admin_password": os.environ.get("POSTGRES_ADMIN_PASSWORD"),
     }
 
 
@@ -41,16 +42,12 @@ def ensure_database_exists(cfg):
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT 1 FROM pg_database WHERE datname = %s;", (cfg["db"],)
-        )
+        cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s;", (cfg["db"],))
         exists = cursor.fetchone()
 
         if not exists:
             print(f"[OptiDBX] Database '{cfg['db']}' not found. Creating...")
-            cursor.execute(
-                sql.SQL("CREATE DATABASE {};").format(sql.Identifier(cfg["db"]))
-            )
+            cursor.execute(sql.SQL("CREATE DATABASE {};").format(sql.Identifier(cfg["db"])))
             print(f"[OptiDBX] Database '{cfg['db']}' created successfully.")
         else:
             print(f"[OptiDBX] Database '{cfg['db']}' already exists.")
@@ -70,7 +67,7 @@ def run_schema(cfg):
         print(f"[OptiDBX Error] schema.sql not found at {schema_path}")
         return False
 
-    with open(schema_path, "r", encoding="utf-8") as f:
+    with open(schema_path, encoding="utf-8") as f:
         schema_sql = f.read()
 
     try:
@@ -90,7 +87,10 @@ def run_schema(cfg):
             print("[OptiDBX] Extension 'pg_stat_statements' enabled.")
         except Exception as ext_err:
             conn.rollback()
-            print(f"[OptiDBX Note] Could not enable pg_stat_statements extension (may require superuser or preloading): {ext_err}")
+            print(
+                "[OptiDBX Note] Could not enable pg_stat_statements "
+                f"(may require superuser or preloading): {ext_err}"
+            )
 
         # Execute schema.sql
         print(f"[OptiDBX] Applying schema from {schema_path.name}...")
@@ -144,4 +144,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -635,6 +635,18 @@ code, pre {
 }
 
 /* Footer */
+.table-container { overflow-x: auto; margin: 1rem 0; }
+select, input { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: .5rem; }
+input[type="number"] { width: 100px; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 3px; }
+@media (max-width: 800px) {
+  .app-header, .header-left, .action-controls-bar, .app-footer { flex-wrap: wrap; }
+  .nav-tabs { flex-wrap: wrap; }
+  .control-group { flex-wrap: wrap; }
+  .autotuner-grid { grid-template-columns: 1fr; }
+}
+
 .app-footer {
   margin-top: auto;
   border-top: 1px solid var(--border-color);

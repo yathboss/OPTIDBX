@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Cpu,
   Database,
@@ -37,6 +37,11 @@ export default function App() {
   const [isWaiting, setIsWaiting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [pending, setPending] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [experimentError, setExperimentError] = useState(null);
+  const fetching = useRef(false);
+  const mutating = useRef(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Helper to format byte counts into MB
@@ -47,6 +52,8 @@ export default function App() {
 
   // 5-second Polling fetch function (Task 8)
   const fetchData = useCallback(async () => {
+    if (fetching.current) return;
+    fetching.current = true;
     setIsRefreshing(true);
     try {
       const [currRes, histRes, tunerRes, workRes, tuneHistRes, expRes] = await Promise.all([
@@ -64,9 +71,11 @@ export default function App() {
         setIsWaiting(false);
         setIsLive(true);
       } else if (currRes.status === 503 || currRes.isWaiting) {
+        setMetrics(null);
         setIsWaiting(true);
         setIsLive(true);
       } else {
+        setMetrics(null);
         setIsLive(currRes.isLive);
       }
 
@@ -76,14 +85,10 @@ export default function App() {
       }
 
       // Handle Autotuner Status
-      if (tunerRes?.data) {
-        setTunerStatus(tunerRes.data);
-      }
+      setTunerStatus(tunerRes?.data || null);
 
       // Handle Workload Status
-      if (workRes?.data) {
-        setWorkloadStatus(workRes.data);
-      }
+      setWorkloadStatus(workRes?.data || null);
 
       // Handle Tuning History
       if (tuneHistRes?.data && Array.isArray(tuneHistRes.data)) {
@@ -95,13 +100,18 @@ export default function App() {
         setExperiments(expRes.data);
       }
 
+      setExperimentError(expRes.status === 200 ? null : expRes.message);
       setLastUpdated(new Date());
-      setErrorMessage(currRes.status === 0 ? currRes.message : null);
+      setErrorMessage(currRes.status === 0 ? currRes.message
+        : tunerRes.status !== 200 ? tunerRes.message
+        : tuneHistRes.status !== 200 ? tuneHistRes.message
+        : histRes.status !== 200 ? histRes.message : null);
     } catch (err) {
       console.warn('Dashboard fetch error:', err);
       setIsLive(false);
       setErrorMessage('Failed to connect to backend server.');
     } finally {
+      fetching.current = false;
       setIsRefreshing(false);
     }
   }, []);
@@ -113,13 +123,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Start / Stop Real Telemetry Loop (Task 17)
-  const handleToggleMonitoring = async (active) => {
-    const res = await api.toggleMonitoring(active);
-    if (res?.data) {
-      setTunerStatus(res.data);
+  const mutate = async operation => {
+    if (mutating.current) return;
+    mutating.current = true;
+    setPending(true);
+    setActionError(null);
+    try {
+      const result = await operation();
+      if (result.status !== 200) setActionError(typeof result.message === 'string' ? result.message : JSON.stringify(result.message));
+      await fetchData();
+    } finally {
+      mutating.current = false;
+      setPending(false);
     }
-    fetchData();
   };
 
   const os = metrics?.os || {};
@@ -137,6 +153,8 @@ export default function App() {
       />
 
       <main className="main-content">
+        {(actionError || errorMessage) && <div className="alert-banner alert-danger" role="alert">{actionError || errorMessage}</div>}
+        {tunerStatus?.last_error && <div className="alert-banner alert-warning" role="alert">{tunerStatus.last_error}</div>}
         {/* Offline / Warning Alerts (Task 25) */}
         {!isLive && (
           <div className="alert-banner alert-danger">
@@ -151,7 +169,8 @@ export default function App() {
           <div className="alert-banner alert-warning">
             <Clock size={18} />
             <span>
-              <strong>Waiting for Real Telemetry:</strong> Collectors are warming up and synchronizing the 5-second interval. OS and DBMS metrics will appear as soon as the first interval completes.
+              <strong>{tunerStatus?.running ? 'Waiting for Real Telemetry: ' : 'Telemetry paused: '}</strong>
+              {tunerStatus?.running ? 'Collectors are warming up or waiting for a valid paired interval.' : 'Start a workload or the telemetry loop to collect new samples.'}
             </span>
           </div>
         )}
@@ -159,7 +178,11 @@ export default function App() {
         {/* Action Controls Bar (Tasks 15, 16, 17) */}
         <ActionControls
           tunerStatus={tunerStatus}
-          onToggleMonitoring={handleToggleMonitoring}
+          onToggleMonitoring={active => mutate(() => api.toggleMonitoring(active))}
+          pending={pending}
+          onMode={mode => mutate(() => api.setTunerMode(mode))}
+          onApprove={id => mutate(() => api.approve(id))}
+          onRollback={id => mutate(() => api.rollback(id))}
           onManualRefresh={fetchData}
           lastUpdated={lastUpdated}
           isRefreshing={isRefreshing}
@@ -169,7 +192,10 @@ export default function App() {
         <TopSummary tunerStatus={tunerStatus} workloadStatus={workloadStatus} />
 
         {/* Workload Status Panel (Task 12) */}
-        <WorkloadPanel workloadStatus={workloadStatus} />
+        <WorkloadPanel workloadStatus={workloadStatus} pending={pending}
+          canStart={!!tunerStatus && !tunerStatus.recovery_required && !tunerStatus.cooldown_remaining_seconds}
+          onStart={(profile, duration) => mutate(() => api.startWorkload(profile, duration))}
+          onStop={() => mutate(() => api.stopWorkload())} />
 
         {/* VIEW 1: MAIN DASHBOARD */}
         {activeTab === 'dashboard' && (
@@ -177,7 +203,7 @@ export default function App() {
             {/* OS Metrics Grid (Task 9 & 26) */}
             <div className="section-title">
               <Cpu size={18} color="var(--accent-blue)" />
-              Operating System Telemetry (Aryaman - Developer 3)
+              Operating System Telemetry
             </div>
             <div className="metric-cards-grid">
               <MetricCard
@@ -228,7 +254,7 @@ export default function App() {
             {/* DBMS Metrics Grid (Task 10 & 26) */}
             <div className="section-title">
               <Database size={18} color="var(--accent-cyan)" />
-              PostgreSQL DBMS Telemetry (Kartikeya - Developer 2)
+              PostgreSQL Telemetry
             </div>
             <div className="metric-cards-grid">
               <MetricCard
@@ -279,7 +305,7 @@ export default function App() {
               <Layers size={18} color="var(--accent-green)" />
               30-Second Observation & Decision Loop
             </div>
-            <BeforeAfterCard hasCompletedTuning={false} />
+            <BeforeAfterCard action={tunerStatus?.active_action} />
           </>
         )}
 
@@ -307,16 +333,16 @@ export default function App() {
 
         {/* VIEW 4: EVALUATION & BENCHMARKS (Tasks 20, 21, 29) */}
         {activeTab === 'experiments' && (
-          <EvaluationView experiments={experiments} />
+          <EvaluationView experiments={experiments} error={experimentError} />
         )}
       </main>
 
       <footer className="app-footer">
         <div>
-          <strong>OptiDBX Phase 2</strong> — Developer 4: Shivansh Bhardwaj (Dashboard & Evaluation)
+          <strong>OptiDBX Safe V1</strong> - Local PostgreSQL tuning and evaluation
         </div>
         <div>
-          Polling: 5s | API Port: 8000 | Frontend: 3000 | Mode: Recommendation Only
+          Polling: 5s | API Port: 8000 | Frontend: 3000 | Mode: {tunerStatus?.mode || 'Unavailable'}
         </div>
       </footer>
     </div>

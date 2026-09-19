@@ -10,6 +10,7 @@ async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   try {
     const res = await fetch(url, {
+      signal: AbortSignal.timeout(20000),
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
       ...options,
     });
@@ -101,6 +102,12 @@ export const api = {
 
   // Real Workload & Experiment Endpoints
   getWorkloadStatus: () => request('/workload/status'),
+  startWorkload: (profile, duration_seconds) => request('/workload/start', {
+    method: 'POST', body: JSON.stringify({profile, duration_seconds}),
+  }),
+  stopWorkload: () => request('/workload/stop', {method: 'POST'}),
+  approve: id => request(`/tuner/actions/${encodeURIComponent(id)}/approve`, {method: 'POST'}),
+  rollback: id => request(`/tuner/actions/${encodeURIComponent(id)}/rollback`, {method: 'POST'}),
 
   getExperiments: () => request('/experiments'),
 

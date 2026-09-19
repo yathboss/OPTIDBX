@@ -35,6 +35,8 @@ wheels/
 .coverage
 htmlcov/
 coverage.xml
+dashboard/test-results/
+dashboard/playwright-report/
 
 # Logs & Databases
 *.log

@@ -125,3 +125,4 @@ class RuntimeStatus(ContractModel):
     cooldown_remaining_seconds: Counter = 0
     recovery_required: bool = False
     os_persistence_status: str = "NOT_REQUESTED"
+    db_persistence_status: str = "NOT_REQUESTED"

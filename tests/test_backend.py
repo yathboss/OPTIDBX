@@ -103,6 +103,23 @@ class TestOptiDBXBackend(unittest.TestCase):
             self.assertIn("reason", first)
 
     def test_experiments_endpoints(self):
+        # Simulated service contract; offline production no longer fabricates runs.
+        from unittest.mock import Mock
+
+        from backend.models.experiment import ExperimentDetailResponse
+        from backend.services.experiment_service import get_experiment_service
+
+        detail_fixture = ExperimentDetailResponse(
+            id=123,
+            name="Simulated test run",
+            workload_type="LOW",
+            status="COMPLETED",
+            created_at="2026-09-19T10:00:00Z",
+        )
+        service = Mock()
+        service.list_experiments.return_value = [detail_fixture]
+        service.get_experiment.return_value = detail_fixture
+        app.dependency_overrides[get_experiment_service] = lambda: service
         response = self.client.get("/experiments")
         self.assertEqual(response.status_code, 200)
         items = response.json()
@@ -130,7 +147,10 @@ class TestOptiDBXBackend(unittest.TestCase):
         self.assertEqual(os_res.status_code, 200)
         self.assertIsInstance(os_res.json(), list)
 
-        db_res = self.client.get("/metrics/db/history?limit=5")
+        from unittest.mock import patch
+
+        with patch("backend.routes.metrics.get_recent_db_metrics", return_value=[]):
+            db_res = self.client.get("/metrics/db/history?limit=5")
         self.assertEqual(db_res.status_code, 200)
         self.assertIsInstance(db_res.json(), list)
 

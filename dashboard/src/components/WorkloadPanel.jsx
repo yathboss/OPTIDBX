@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PlayCircle, StopCircle, Layers, Clock, Hash, Activity } from 'lucide-react';
 
-export default function WorkloadPanel({ workloadStatus }) {
+export default function WorkloadPanel({ workloadStatus, pending, onStart, onStop, canStart }) {
+  const [selectedProfile, setSelectedProfile] = useState('LOW');
+  const [duration, setDuration] = useState(180);
   const isRunning = Boolean(workloadStatus?.running);
   const profile = workloadStatus?.profile || 'IDLE';
   const expId = workloadStatus?.experiment_id;
@@ -28,7 +30,7 @@ export default function WorkloadPanel({ workloadStatus }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Layers size={18} color="var(--accent-cyan)" />
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>PostgreSQL Workload Status (Kartikeya - Dev 2)</span>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Owned PostgreSQL workload</span>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <span className={`badge ${isRunning ? 'badge-green' : 'badge-amber'}`}>
@@ -43,6 +45,19 @@ export default function WorkloadPanel({ workloadStatus }) {
         </div>
       </div>
 
+      <div className="control-group" style={{marginBottom: '1rem'}}>
+        <label>Profile <select aria-label="Workload profile" value={selectedProfile} disabled={pending || isRunning}
+          onChange={e => setSelectedProfile(e.target.value)}>
+          {['LOW', 'MEDIUM', 'HIGH'].map(p => <option key={p}>{p}</option>)}
+        </select></label>
+        <label>Duration (seconds) <input aria-label="Duration (seconds)" type="number" min="30" max="600"
+          value={duration} disabled={pending || isRunning} onChange={e => setDuration(Number(e.target.value))}/></label>
+        <button className="btn btn-primary" disabled={pending || isRunning || !canStart || !Number.isInteger(duration) || duration < 30 || duration > 600}
+          onClick={() => onStart(selectedProfile, duration)}>Start Workload</button>
+        <button className="btn btn-danger" disabled={pending || !isRunning} onClick={onStop}>Stop Workload</button>
+        <span>{workloadStatus?.completed_queries ?? 0} completed queries</span>
+      </div>
+      {workloadStatus?.error && <p role="alert">{workloadStatus.error}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', background: 'var(--bg-card)', padding: '0.85rem 1rem', borderRadius: '8px' }}>
         <div>
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
