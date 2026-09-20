@@ -43,6 +43,9 @@ Do not expose this unauthenticated local control API publicly.
    remaining cooldown before starting another run.
 6. Open **Evaluation & Benchmarks**, then **View run** for stored averages,
    action comparisons, and recorded telemetry. Empty storage stays empty.
+7. Open **Performance Evidence** for repeated baseline/auto comparisons with
+   direct workload timings, frozen verdict criteria and JSON/CSV downloads.
+   See [the comparison guide](performance_evidence.md).
 
 Stopping monitoring during an observation requests rollback. A kept setting stays
 on its owned session until manual rollback or workload stop. Changing to

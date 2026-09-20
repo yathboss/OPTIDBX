@@ -11,6 +11,10 @@ workload sessions can be tuned.
 [Validation and real evidence](docs/testing/safe_v1.md) include an observed full
 apply/observe/rollback/cooldown cycle; this is not a claim of improved performance.
 
+**Performance Evidence:** [run paired baseline/auto comparisons](docs/performance_evidence.md)
+in the dashboard, inspect direct query throughput and median/p95 latency, and
+download the actual run evidence. Short pilots remain inconclusive.
+
 In this Windows workspace, run `scripts/start_v1.ps1` for the WSL API and
 `scripts/start_v1.ps1 -Dashboard` in another terminal, then open
 <http://localhost:3000>. Both use the existing local installation.
