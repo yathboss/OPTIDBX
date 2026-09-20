@@ -92,7 +92,9 @@ export default function PerformanceEvidence() {
       {current?.evaluation?.throughput_change && <div className="comparison-grid">
         {[['throughput_change','Workload throughput'], ['p95_change','p95 latency']].map(([key,label]) => <div className="comp-col" key={key}>
           <h3>{label}</h3><strong>{percent(current.evaluation[key].mean_percent)}</strong>
-          <p>95% interval: {current.evaluation[key].interval_95.map(percent).join(' to ')}</p>
+          <p>{current.evaluation.completed_pairs >= 2 && current.evaluation[key].interval_95
+            ? `95% interval: ${current.evaluation[key].interval_95.map(percent).join(' to ')}`
+            : 'Insufficient repetitions to estimate uncertainty.'}</p>
         </div>)}
       </div>}
     </div>

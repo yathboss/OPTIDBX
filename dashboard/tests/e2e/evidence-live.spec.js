@@ -35,11 +35,13 @@ test('real PostgreSQL pilot records both modes without an improvement claim', as
     await page.getByRole('button', {name:'Refresh evidence', exact:true}).click();
     await expect(page.getByRole('heading', {name:'Inconclusive', exact:true})).toBeVisible();
     await expect(page.getByRole('cell', {name:'COMPLETED', exact:true})).toHaveCount(2);
+    await expect(page.getByText('Insufficient repetitions to estimate uncertainty.', {exact:true})).toHaveCount(2);
     const download = page.waitForEvent('download');
     await page.getByRole('link', {name:'Download CSV', exact:true}).click();
     expect((await download).suggestedFilename()).toBe(`benchmark-${id}.csv`);
     expect(errors).toEqual([]);
     await writeFile('../docs/testing/evidence/performance-evidence-pilot.json', JSON.stringify(record, null, 2));
+    await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({path:'../docs/testing/evidence/performance-evidence-pilot.png', fullPage:true});
   } finally {
     if (!record || ['RUNNING','CANCELLING'].includes(record.status)) {

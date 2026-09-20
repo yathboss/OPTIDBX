@@ -22,6 +22,8 @@ CRITERIA = {
 
 
 def interval(values):
+    if len(values) < 2:
+        return {"mean_percent": mean(values), "interval_95": None}
     rng = random.Random(2026)
     estimates = [
         mean(rng.choices(values, k=len(values))) for _ in range(CRITERIA["bootstrap_resamples"])

@@ -8,6 +8,7 @@ import threading
 import time
 from copy import deepcopy
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -78,11 +79,23 @@ class BenchmarkService:
                 rng.shuffle(modes)
                 order.extend({"pair": pair, "mode": mode} for mode in modes)
             try:
+                # Scoped to this checkout and this invocation; no Git config mutation.
+                root = str(Path(__file__).resolve().parents[1])
+                git = ["git", "-c", f"safe.directory={root}", "-C", root]
                 revision = subprocess.check_output(
-                    ["git", "rev-parse", "HEAD"], text=True, timeout=3
+                    [*git, "rev-parse", "HEAD"], text=True, timeout=3, stderr=subprocess.DEVNULL
                 ).strip()
+                dirty = bool(
+                    subprocess.check_output(
+                        [*git, "status", "--porcelain", "--untracked-files=no"],
+                        text=True,
+                        timeout=3,
+                        stderr=subprocess.DEVNULL,
+                    ).strip()
+                )
             except (OSError, subprocess.SubprocessError):
                 revision = "unavailable"
+                dirty = None
             self.record = {
                 "id": identifier,
                 "status": "RUNNING",
@@ -98,6 +111,7 @@ class BenchmarkService:
                 "manifest": {
                     "source": "REAL_OWNED_WORKLOAD",
                     "revision": revision,
+                    "working_tree_dirty": dirty,
                     "platform": platform.platform(),
                     "python": platform.python_version(),
                     "query_sha256": hashlib.sha256(QUERY.encode()).hexdigest(),
