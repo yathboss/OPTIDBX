@@ -75,6 +75,15 @@ def test_repeated_improvement_and_uncertainty_are_explicit():
     assert result["throughput_change"]["interval_95"] == pytest.approx([20, 20])
 
 
+def test_one_pair_cannot_estimate_between_run_uncertainty():
+    from experiments.evidence import evaluate
+
+    result = evaluate(rows()[:2], {"repetitions": 1, "warmup_seconds": 5})
+    assert result["verdict"] == "INCONCLUSIVE"
+    assert result["throughput_change"]["mean_percent"] == pytest.approx(20)
+    assert result["throughput_change"]["interval_95"] is None
+
+
 def test_evidence_store_is_durable_and_rejects_traversal(tmp_path):
     from experiments.evidence import EvidenceStore
 
@@ -159,6 +168,20 @@ def test_runner_freezes_settings_and_records_every_pair(benchmark):
     assert all(s[2]["initial_parallelism"] == 2 for s in starts)
     assert manager.reservation is None
     assert service.store.get(result["id"])["runs"] == result["runs"]
+
+
+def test_manifest_discloses_uncommitted_source_changes(benchmark, monkeypatch):
+    from unittest.mock import Mock
+
+    service, _, _ = benchmark
+    monkeypatch.setattr(
+        "experiments.benchmark.subprocess.check_output",
+        Mock(side_effect=["abc123\n", " M experiments/benchmark.py\n"]),
+    )
+    service.start({"repetitions": 1})
+    service.thread.join(5)
+    assert service.status()["manifest"]["revision"] == "abc123"
+    assert service.status()["manifest"]["working_tree_dirty"] is True
 
 
 def test_storage_failure_never_starts_workload_or_shows_running(benchmark, monkeypatch):
