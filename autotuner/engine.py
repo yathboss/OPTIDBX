@@ -6,6 +6,7 @@ from typing import Any
 
 from autotuner.action_selector import select_action
 from autotuner.detectors.cpu_detector import detect_cpu, is_cpu_candidate
+from autotuner.rejection_memory import condition_signature
 from autotuner.models import (
     BottleneckType,
     CombinedTelemetry,
@@ -19,8 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class AutotunerEngine:
-    def __init__(self, config: AppConfig | None = None):
+    def __init__(self, config: AppConfig | None = None, *, rejection_memory=None):
         self.config = load_config() if config is None else config
+        self.rejection_memory = rejection_memory
         self.recent_readings: deque[CombinedTelemetry] = deque(
             maxlen=self.config.monitoring.history_size
         )
@@ -91,6 +93,21 @@ class AutotunerEngine:
             and (action.old_value, action.new_value) == (previous.old_value, previous.new_value)
         ):
             action = previous
+        suppressed_reason = None
+        if action is not None and action.new_value is not None and self.rejection_memory is not None:
+            signature = condition_signature(
+                sample.db_metrics.active_workers, sample.os_metrics.cpu_percent
+            )
+            suppressed, suppressed_reason = self.rejection_memory.is_suppressed(
+                (action.old_value, action.new_value), signature, sample.timestamp
+            )
+            if suppressed:
+                logger.info(
+                    "Recommendation suppressed by rejection memory: %s",
+                    suppressed_reason,
+                    extra={"event": "recommendation_suppressed"},
+                )
+                action = None
         if action is not None:
             logger.info(
                 "Recommendation created",
@@ -111,10 +128,13 @@ class AutotunerEngine:
             if candidate
             else TunerState.MONITORING
         )
+        reason = bottleneck.reason
+        if suppressed_reason is not None:
+            reason = f"{reason} {suppressed_reason}"
         self._status = RuntimeStatus(
             state=state,
             detected_bottleneck=bottleneck.bottleneck_type,
-            reason=bottleneck.reason,
+            reason=reason,
             evidence=bottleneck.evidence,
             recommended_action=action,
             timestamp=sample.timestamp,

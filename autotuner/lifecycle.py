@@ -65,6 +65,8 @@ class ActionLifecycle:
         self.records = deque(maxlen=config.monitoring.history_size)
         self.after = []
         self.applied_at = None
+        self.baseline_end_mono = None
+        self.before_owned = None
         self.deadline = None
         self.cooldown_end = None
         self.last_timestamp = None
@@ -169,6 +171,8 @@ class ActionLifecycle:
             before = summarize(baseline)
             if before["query_latency_ms"] <= 0 or before["throughput_tps"] <= 0:
                 raise ValueError("Insufficient workload baseline")
+            # Validate BEFORE acquiring the action gate or mutating a setting.
+            self._prepare_owned_baseline()
             self.owner = str(action.action_id)
             self.gate.acquire(self.owner)
             self.record = {
@@ -196,6 +200,13 @@ class ActionLifecycle:
         action = self.record["action"]
         attempted = False
         try:
+            # Freeze steady-state evidence before read/apply barriers interrupt admission.
+            self._prepare_owned_baseline()
+            if self.before_owned is not None:
+                self.record["before_owned"] = deepcopy(self.before_owned)
+                self.record["owned_baseline_end_monotonic"] = self.baseline_end_mono
+                self.record["owned_window_seconds"] = self._owned_window_seconds()
+                self.record["baseline_warmup_seconds"] = self.config.tuning.baseline_warmup_seconds
             if self.executor.read() != action["old_value"]:
                 raise ValueError("Workload setting changed since recommendation")
             self._journal()
@@ -295,43 +306,194 @@ class ActionLifecycle:
             self.record["observation_elapsed_seconds"] = self.clock() - self.applied_at
         before = self.record["before"]
         cfg = self.config.tuning
-        evaluation = PerformanceEvaluator(cfg.improvement_percent, cfg.improvement_percent).compare(
-            WorkloadMetrics(
-                **{k: before[k] for k in ("query_latency_ms", "throughput_tps", "cpu_percent")}
-            ),
-            WorkloadMetrics(
-                **{k: after[k] for k in ("query_latency_ms", "throughput_tps", "cpu_percent")}
-            ),
-        )
-        degraded = after["query_latency_ms"] > before["query_latency_ms"] * (
-            1 + cfg.degradation_percent / 100
-        ) or after["throughput_tps"] < before["throughput_tps"] * (
-            1 - cfg.degradation_percent / 100
-        )
+
+        # OS resource-degradation guard from telemetry applies regardless of signal source.
+        resource_degraded = False
         for key in ("cpu_percent", "memory_percent", "disk_read_bytes", "disk_write_bytes"):
             floor = cfg.disk_noise_floor_bytes if key.startswith("disk") else 1
-            degraded |= (
+            resource_degraded |= (
                 after[key]
                 > before[key] + max(before[key], floor) * cfg.resource_degradation_percent / 100
             )
-        improved = (
-            evaluation.latency_change_percent <= -cfg.improvement_percent
-            or evaluation.throughput_change_percent >= cfg.improvement_percent
-        )
-        if not improved or degraded or self.cancel_requested or after["throughput_tps"] <= 0:
-            self._rollback("Degraded or insufficient improvement across observation metrics")
+
+        # Judge benefit from real owned-workload client measurements when available;
+        # Legacy executors without the owned-measurement contract retain telemetry evaluation.
+        # A broken owned contract must NEVER silently fall back to a different signal.
+        owned = self._owned_evaluation(cfg)
+        if owned is not None:
+            with self.lock:
+                self.record["evaluation_source"] = "OWNED_WORKLOAD"
+                self.record["keep_policy"] = cfg.keep_policy
+                self.record["before_owned"] = owned["before"]
+                self.record["after_owned"] = owned["after"]
+                if not owned["insufficient"]:
+                    self.record["owned_change"] = {
+                        "qps_percent": owned["qps_change_percent"],
+                        "p95_percent": owned["p95_change_percent"],
+                    }
+            if owned["insufficient"]:
+                self._rollback("Insufficient owned-workload measurements during observation")
+                return
+            improved, degraded, detail = owned["improved"], owned["degraded"], owned["detail"]
+        else:
+            with self.lock:
+                self.record["evaluation_source"] = "DATABASE_TELEMETRY"
+            evaluation = PerformanceEvaluator(
+                cfg.improvement_percent, cfg.improvement_percent
+            ).compare(
+                WorkloadMetrics(
+                    **{k: before[k] for k in ("query_latency_ms", "throughput_tps", "cpu_percent")}
+                ),
+                WorkloadMetrics(
+                    **{k: after[k] for k in ("query_latency_ms", "throughput_tps", "cpu_percent")}
+                ),
+            )
+            degraded = after["query_latency_ms"] > before["query_latency_ms"] * (
+                1 + cfg.degradation_percent / 100
+            ) or after["throughput_tps"] < before["throughput_tps"] * (
+                1 - cfg.degradation_percent / 100
+            )
+            improved = (
+                evaluation.latency_change_percent <= -cfg.improvement_percent
+                or evaluation.throughput_change_percent >= cfg.improvement_percent
+            ) and after["throughput_tps"] > 0
+            detail = (
+                f"latency {evaluation.latency_change_percent:+}%, "
+                f"throughput {evaluation.throughput_change_percent:+}%"
+            )
+
+        if not improved or degraded or resource_degraded or self.cancel_requested:
+            reason = "Degraded or insufficient improvement across observation metrics"
+            if detail:
+                reason += f" ({detail})"
+            self._rollback(reason)
             return
         try:
             if self.executor.read() != self.record["action"]["new_value"]:
                 raise ValueError("Workload setting drifted during observation")
             self._finish(
                 "KEEP",
-                "Improvement met configured tolerance without resource degradation: "
-                f"latency {evaluation.latency_change_percent:+}%, "
-                f"throughput {evaluation.throughput_change_percent:+}%",
+                "Improvement met configured tolerance without resource degradation: " + detail,
             )
         except Exception as exc:
             self._rollback(f"Keep verification/storage failed: {type(exc).__name__}")
+
+    def _owned_evaluation(self, cfg):
+        """Compare pre-apply vs post-apply owned-workload windows; None if unbound.
+
+        Uses client-observed p95 latency and QPS from the bound workload itself,
+        which reducing parallelism can actually move, unlike database-wide telemetry.
+        """
+        window = getattr(self.executor, "window", None)
+        if window is None:
+            return None
+        settle = self.config.monitoring.interval_seconds
+        before, after = deepcopy(self.before_owned), None
+        try:
+            # Equal, fixed-length windows. Later scheduler callbacks do not enlarge the sample.
+            start = self.applied_at + settle
+            end = start + self._owned_window_seconds()
+            if self.clock() >= end:
+                after = window(start, end)
+        except Exception:
+            logger.warning("Owned observation measurements unavailable")
+        insufficient = not self._valid_owned(before) or not self._valid_owned(after)
+        if insufficient:
+            # Invalid external summaries must not make the status API itself fail JSON encoding.
+            def safe_summary(summary):
+                try:
+                    json.dumps(summary, allow_nan=False)
+                    return summary if isinstance(summary, dict) else None
+                except (ValueError, TypeError):
+                    return None
+            return {
+                "before": safe_summary(before),
+                "after": safe_summary(after),
+                "improved": False,
+                "degraded": False,
+                "insufficient": True,
+                "detail": "insufficient owned samples",
+            }
+        p95_change = (after["p95_latency_ms"] / before["p95_latency_ms"] - 1) * 100
+        qps_change = (after["qps"] / before["qps"] - 1) * 100
+        if not math.isfinite(p95_change) or not math.isfinite(qps_change):
+            return {"before": before, "after": after, "insufficient": True,
+                    "improved": False, "degraded": False, "detail": "nonfinite changes"}
+        errors_rose = after.get("error_rate", 0) > before.get("error_rate", 0)
+        keep, detail = self._keep_decision(cfg, qps_change, p95_change, errors_rose)
+        return {
+            "before": before,
+            "after": after,
+            # Fold the whole owned decision into one signal; the caller still applies
+            # the independent OS resource-degradation and cancellation vetoes on top.
+            "improved": keep,
+            "degraded": not keep,
+            "insufficient": False,
+            "detail": detail,
+            "qps_change_percent": round(qps_change, 1),
+            "p95_change_percent": round(p95_change, 1),
+        }
+
+    def _owned_window_seconds(self):
+        return self.config.tuning.observation_window_seconds - self.config.monitoring.interval_seconds
+
+    def _valid_owned(self, value):
+        if not isinstance(value, dict) or value.get("truncated"):
+            return False
+        for key in ("qps", "p95_latency_ms", "successful_queries", "elapsed_seconds"):
+            number = value.get(key)
+            if not isinstance(number, (int, float)) or not math.isfinite(number) or number <= 0:
+                return False
+        rate = value.get("error_rate")
+        return (
+            isinstance(rate, (int, float)) and math.isfinite(rate) and 0 <= rate <= 1
+            and value["successful_queries"] >= self.config.tuning.minimum_owned_queries
+            and abs(value["elapsed_seconds"] - self._owned_window_seconds()) < 0.001
+        )
+
+    def _prepare_owned_baseline(self):
+        if getattr(self.executor, "window", None) is None:
+            self.before_owned = None
+            return
+        end = self.clock()
+        start = end - self._owned_window_seconds()
+        try:
+            earliest = self.executor.earliest()
+            if (earliest is None or not math.isfinite(earliest)
+                    or self._owned_window_seconds() <= 0
+                    or earliest > start - self.config.tuning.baseline_warmup_seconds):
+                raise ValueError("Owned baseline is warming up; wait for a complete warm baseline")
+            baseline = self.executor.window(start, end)
+            if not self._valid_owned(baseline):
+                raise ValueError("Insufficient owned baseline measurements; wait before applying")
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError("Owned baseline measurements unavailable") from exc
+        self.before_owned = deepcopy(baseline)
+        self.baseline_end_mono = end
+
+    def _keep_decision(self, cfg, qps_change, p95_change, errors_rose):
+        """Policy-driven KEEP/ROLLBACK from owned throughput and latency changes."""
+        policy = cfg.keep_policy
+        net = cfg.throughput_weight * qps_change - cfg.latency_weight * p95_change
+        detail = f"{policy}: qps {qps_change:+.1f}%, p95 {p95_change:+.1f}%"
+        if policy == "net_benefit":
+            detail += f", net {net:+.1f}%"
+        # A latency blowout or a new error rate is never worth keeping, any policy.
+        if errors_rose:
+            return False, "errors increased; " + detail
+        if p95_change >= min(cfg.max_latency_regression_percent, cfg.degradation_percent):
+            return False, "latency regressed past cap; " + detail
+        if qps_change <= -cfg.degradation_percent:
+            return False, "throughput regressed past cap; " + detail
+        if policy == "latency_first":
+            keep = p95_change <= -cfg.improvement_percent and qps_change > -cfg.degradation_percent
+        elif policy == "throughput_first":
+            keep = qps_change >= cfg.improvement_percent
+        else:  # net_benefit: a real net win with neither axis falling off a cliff.
+            keep = net >= cfg.improvement_percent and qps_change > -cfg.degradation_percent
+        return keep, detail
 
     def _finish(self, state, reason):
         if state == "KEEP" and self.cancel_requested:

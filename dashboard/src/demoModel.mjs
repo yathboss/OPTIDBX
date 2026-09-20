@@ -16,8 +16,11 @@ export function buildReport(run) {
     status: source.status ?? 'Unavailable', profile: source.workload_type ?? source.profile ?? 'Unavailable',
     started_at: source.started_at ?? null, ended_at: source.ended_at ?? null,
     actions: (source.actions || []).map(record => ({...record,
-      metrics: fields.map(([key, label, unit]) => {
-        const before = finite(record.before?.[key]), after = finite(record.after?.[key]);
+      metrics: fields.map(([key, label, unit], index) => {
+        const owned = record.evaluation_source === 'OWNED_WORKLOAD' && index < 2;
+        if (owned) [key,label,unit] = index === 0 ? ['p95_latency_ms','Owned query p95 latency','ms (owned)'] : ['qps','Owned throughput','queries / second (owned)'];
+        const before = finite((owned ? record.before_owned : record.before)?.[key]);
+        const after = finite((owned ? record.after_owned : record.after)?.[key]);
         return {key, label, unit, before, after,
           difference: before !== null && after !== null ? after - before : null,
           percent: before !== null && after !== null && before !== 0 ? (after - before) / before * 100 : null};
@@ -25,7 +28,7 @@ export function buildReport(run) {
     })),
     limitations: [
       'A before/after observation does not establish causation or a general performance improvement.',
-      'Throughput is database-wide TPS, not direct owned-workload queries per second. Other activity can affect telemetry.',
+      'Owned decisions use client-observed p95 latency and QPS, excluding the action admission barrier. Legacy TPS values are database-wide. Resource telemetry includes other activity.',
       'OS settings were not automatically tuned. Missing values are unavailable, never zero-filled.',
       'Use a completed paired evidence study for a stronger performance claim. KEEP alone is not proof.',
     ], source,

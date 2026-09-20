@@ -5,7 +5,10 @@ The owner must execute queries through this group and must not reconnect session
 """
 
 import threading
+import time
 from contextlib import contextmanager
+
+from workload.measurements import RollingQueryLog
 
 
 class BoundWorkloadGroup:
@@ -18,6 +21,9 @@ class BoundWorkloadGroup:
         self._action_lock = threading.RLock()
         self._paused = False
         self._active = 0
+        # Client-observed timings the lifecycle reads to judge KEEP/ROLLBACK on the
+        # owned workload itself, excluding the one-off action-barrier wait below.
+        self.performance = RollingQueryLog()
         self._cached = self.read()
 
     def capabilities(self):
@@ -73,6 +79,7 @@ class BoundWorkloadGroup:
                 session.apply(old, new)
             if self._read_all() != new:
                 raise ValueError("Group apply verification failed")
+            self.performance.reset()
 
     def restore(self, old, applied):
         with self._exclusive():
@@ -89,14 +96,34 @@ class BoundWorkloadGroup:
                 ]
             if self._read_all() != old:
                 raise ValueError("Group restore verification failed")
+            self.performance.reset()
+
+    def earliest(self):
+        return self.performance.earliest()
+
+    def window(self, start, end):
+        """Owned-workload latency/throughput summary over a monotonic time window."""
+        return self.performance.window(start, end)
 
     def execute(self, index, query):
         with self._condition:
             if not self._condition.wait_for(lambda: not self._paused, timeout=15):
                 raise ValueError("Workload action barrier timed out")
             self._active += 1
+        # Time only the query round trip, not the admission barrier above.
+        started = time.monotonic()
         try:
-            return self.sessions[index].execute_workload(query)
+            result = self.sessions[index].execute_workload(query)
+            self.performance.record(started, time.monotonic())
+            return result
+        except Exception as exc:
+            self.performance.record(
+                started,
+                time.monotonic(),
+                error=True,
+                timeout=getattr(exc, "pgcode", None) == "57014",
+            )
+            raise
         finally:
             with self._condition:
                 self._active -= 1

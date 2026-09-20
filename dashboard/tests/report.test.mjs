@@ -29,3 +29,13 @@ test('lifecycle maps to honest steps, including blocked recovery', () => {
   assert.equal(phaseIndex('OBSERVING',true),4);
   assert.equal(phaseIndex('ROLLBACK_FAILED',true),5);
 });
+
+test('owned decisions report owned p95/QPS rather than misleading database averages', () => {
+  const report=buildReport({actions:[{evaluation_source:'OWNED_WORKLOAD',before:{query_latency_ms:999,throughput_tps:999},after:{query_latency_ms:1,throughput_tps:2000},before_owned:{p95_latency_ms:100,qps:10},after_owned:{p95_latency_ms:120,qps:8}}]});
+  assert.equal(report.actions[0].metrics[0].before,100);
+  assert.equal(report.actions[0].metrics[0].percent,20);
+  assert.equal(report.actions[0].metrics[1].after,8);
+  assert.match(report.actions[0].metrics[1].unit,/owned/);
+  const missing=buildReport({actions:[{evaluation_source:'OWNED_WORKLOAD',before:{query_latency_ms:123},after:{query_latency_ms:100}}]});
+  assert.equal(missing.actions[0].metrics[0].before,null);
+});
