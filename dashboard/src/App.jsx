@@ -105,6 +105,7 @@ export default function App() {
       setLastUpdated(new Date());
       setErrorMessage(currRes.status === 0 ? currRes.message
         : tunerRes.status !== 200 ? tunerRes.message
+        : workRes.status !== 200 ? workRes.message
         : tuneHistRes.status !== 200 ? tuneHistRes.message
         : histRes.status !== 200 ? histRes.message : null);
     } catch (err) {
@@ -142,6 +143,7 @@ export default function App() {
   const os = metrics?.os || {};
   const db = metrics?.db || {};
   const telemetryAvailable = Boolean(tunerStatus?.telemetry_available);
+  const comparisonActive = Boolean(workloadStatus?.benchmark_id);
 
   return (
     <div className="app-container">
@@ -154,6 +156,11 @@ export default function App() {
       />
 
       <main className="main-content">
+        {comparisonActive && <div className="alert-banner alert-warning" role="status">
+          <span><strong>A comparison controls this workload.</strong> Manual workload and tuning controls are paused until it finishes or you cancel it.</span>
+          <button className="btn btn-secondary" onClick={() => setActiveTab('evidence')}>View comparison</button>
+          <button className="btn btn-danger" disabled={pending} onClick={() => mutate(api.cancelBenchmark)}>Cancel active comparison</button>
+        </div>}
         {(actionError || errorMessage) && <div className="alert-banner alert-danger" role="alert">{actionError || errorMessage}</div>}
         {tunerStatus?.last_error && <div className="alert-banner alert-warning" role="alert">{tunerStatus.last_error}</div>}
         {/* Offline / Warning Alerts (Task 25) */}
@@ -181,6 +188,7 @@ export default function App() {
           tunerStatus={tunerStatus}
           onToggleMonitoring={active => mutate(() => api.toggleMonitoring(active))}
           pending={pending}
+          controlsLocked={comparisonActive}
           onMode={mode => mutate(() => api.setTunerMode(mode))}
           onApprove={id => mutate(() => api.approve(id))}
           onRollback={id => mutate(() => api.rollback(id))}
@@ -194,7 +202,7 @@ export default function App() {
 
         {/* Workload Status Panel (Task 12) */}
         <WorkloadPanel workloadStatus={workloadStatus} pending={pending}
-          canStart={!!tunerStatus && !tunerStatus.recovery_required && !tunerStatus.cooldown_remaining_seconds}
+          canStart={!!workloadStatus && !!tunerStatus && !comparisonActive && !tunerStatus.recovery_required && !tunerStatus.cooldown_remaining_seconds}
           onStart={(profile, duration) => mutate(() => api.startWorkload(profile, duration))}
           onStop={() => mutate(() => api.stopWorkload())} />
 

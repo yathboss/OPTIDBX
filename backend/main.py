@@ -45,15 +45,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Enable CORS for React frontend (Vite/CRA)
 TRUSTED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=TRUSTED_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.middleware("http")
@@ -73,6 +65,17 @@ async def protect_local_controls(request, call_next):
                 status_code=409,
             )
     return await call_next(request)
+
+
+# Register CORS last so it also wraps early control-conflict responses.
+# Otherwise browsers hide their 409 explanation as a generic fetch failure.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=TRUSTED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Include subrouters

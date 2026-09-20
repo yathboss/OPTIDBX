@@ -3,20 +3,21 @@ import { Play, Square, CheckCircle, RotateCcw, RefreshCw } from 'lucide-react';
 import { actionState } from '../actionState.mjs';
 
 export default function ActionControls({tunerStatus, onToggleMonitoring, onManualRefresh,
-  lastUpdated, isRefreshing, pending, onMode, onApprove, onRollback}) {
-  const state = actionState(tunerStatus || {}, pending);
+  lastUpdated, isRefreshing, pending, controlsLocked = false, onMode, onApprove, onRollback}) {
+  const unavailable = pending || controlsLocked;
+  const state = actionState(tunerStatus || {}, unavailable);
   const running = Boolean(tunerStatus?.running);
   return <div className="action-controls-bar">
     <div className="control-group">
       <span>Operating mode</span>
       <div className="mode-toggle">
         <button className={`mode-btn ${tunerStatus?.mode === 'recommendation' ? 'active' : ''}`}
-          disabled={pending || !tunerStatus || tunerStatus.recovery_required} onClick={() => onMode('recommendation')}>Recommendation Mode</button>
+          disabled={unavailable || !tunerStatus || tunerStatus.recovery_required} onClick={() => onMode('recommendation')}>Recommendation Mode</button>
         <button className={`mode-btn ${tunerStatus?.mode === 'auto' ? 'active' : ''}`}
           disabled={!state.canAuto} onClick={() => onMode('auto')}
-          title={state.canAuto ? 'Tune owned workload sessions only' : 'Start an owned workload to enable automatic tuning'}>Auto-Tuning</button>
+          title={controlsLocked ? 'The active comparison controls tuning' : state.canAuto ? 'Tune owned workload sessions only' : 'Start an owned workload to enable automatic tuning'}>Auto-Tuning</button>
       </div>
-      <button className={`btn ${running ? 'btn-danger' : 'btn-primary'}`} disabled={pending || !tunerStatus}
+      <button className={`btn ${running ? 'btn-danger' : 'btn-primary'}`} disabled={unavailable || !tunerStatus}
         onClick={() => onToggleMonitoring(!running)}>
         {running ? <Square size={14}/> : <Play size={14}/>}{running ? 'Stop Telemetry Loop' : 'Start Telemetry Loop'}
       </button>

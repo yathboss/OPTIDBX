@@ -5,6 +5,8 @@ export default function WorkloadPanel({ workloadStatus, pending, onStart, onStop
   const [selectedProfile, setSelectedProfile] = useState('LOW');
   const [duration, setDuration] = useState(180);
   const isRunning = Boolean(workloadStatus?.running);
+  const comparisonActive = Boolean(workloadStatus?.benchmark_id);
+  const locked = pending || comparisonActive;
   const profile = workloadStatus?.profile || 'IDLE';
   const expId = workloadStatus?.experiment_id;
   const startedAt = workloadStatus?.started_at
@@ -46,17 +48,18 @@ export default function WorkloadPanel({ workloadStatus, pending, onStart, onStop
       </div>
 
       <div className="control-group" style={{marginBottom: '1rem'}}>
-        <label>Profile <select aria-label="Workload profile" value={selectedProfile} disabled={pending || isRunning}
+        <label>Profile <select aria-label="Workload profile" value={isRunning ? profile : selectedProfile} disabled={locked || isRunning}
           onChange={e => setSelectedProfile(e.target.value)}>
           {['LOW', 'MEDIUM', 'HIGH'].map(p => <option key={p}>{p}</option>)}
         </select></label>
         <label>Duration (seconds) <input aria-label="Duration (seconds)" type="number" min="30" max="600"
-          value={duration} disabled={pending || isRunning} onChange={e => setDuration(Number(e.target.value))}/></label>
-        <button className="btn btn-primary" disabled={pending || isRunning || !canStart || !Number.isInteger(duration) || duration < 30 || duration > 600}
+          value={isRunning ? workloadStatus?.duration_seconds ?? duration : duration} disabled={locked || isRunning} onChange={e => setDuration(Number(e.target.value))}/></label>
+        <button className="btn btn-primary" disabled={locked || isRunning || !canStart || !Number.isInteger(duration) || duration < 30 || duration > 600}
           onClick={() => onStart(selectedProfile, duration)}>Start Workload</button>
-        <button className="btn btn-danger" disabled={pending || !isRunning} onClick={onStop}>Stop Workload</button>
+        <button className="btn btn-danger" disabled={locked || !isRunning} onClick={onStop}>Stop Workload</button>
         <span>{workloadStatus?.completed_queries ?? 0} completed queries</span>
       </div>
+      {isRunning && !comparisonActive && <p>A workload is already running. Stop it before starting another.</p>}
       {workloadStatus?.error && <p role="alert">{workloadStatus.error}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', background: 'var(--bg-card)', padding: '0.85rem 1rem', borderRadius: '8px' }}>
         <div>

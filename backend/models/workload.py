@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class WorkloadStatusResponse(BaseModel):
+    benchmark_id: str | None = None
     measurements: dict | None = None
     error: str | None = None
     clients: int = 0

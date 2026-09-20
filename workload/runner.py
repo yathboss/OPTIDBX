@@ -37,6 +37,7 @@ class ManagedWorkload:
         with self._counter_lock:
             completed = self.completed_queries
         return dict(
+            benchmark_id=self.reservation,
             running=self.running,
             profile=self.profile,
             experiment_id=self.experiment_id,
