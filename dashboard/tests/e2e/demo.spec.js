@@ -5,6 +5,7 @@ async function fixture(page, options={}) {
   const calls=[];
   let state=options.state || 'MONITORING', running=false;
   const action={experiment_id:9,action:{action_id:'safe-9',parameter:'max_parallel_workers_per_gather',old_value:2,new_value:1},outcome:'ROLLBACK',reason:'Latency degraded.',verified_applied_value:1,verified_restored_value:2,baseline_samples:3,observation_samples:6,before:{query_latency_ms:100,throughput_tps:20,cpu_percent:95,memory_percent:30,disk_read_bytes:0,disk_write_bytes:10},after:{query_latency_ms:120,throughput_tps:18,cpu_percent:90,memory_percent:30,disk_read_bytes:0,disk_write_bytes:10}};
+  if(options.owned) Object.assign(action,{evaluation_source:'OWNED_WORKLOAD',keep_policy:'net_benefit',before_owned:{p95_latency_ms:200,qps:10,successful_queries:250},after_owned:{p95_latency_ms:240,qps:8,successful_queries:200},owned_window_seconds:25,baseline_warmup_seconds:15});
   await page.route('http://localhost:8000/**',async route=>{
     const req=route.request(),path=new URL(req.url()).pathname;
     if(req.method()==='OPTIONS') return route.fulfill({status:204});
@@ -65,6 +66,16 @@ test('print uses the full report outside the scrollable dialog',async({page})=>{
   await expect(page.locator('.report-dialog')).toBeHidden();
   await expect(page.locator('.print-export')).toContainText('Tuning observation report');
   await expect(page.locator('.print-export')).toContainText('Scope & limitations');
+});
+test('owned-workload decisions show their actual p95 and QPS in the card and report',async({page})=>{
+  await fixture(page,{report:true,owned:true});await page.goto('/');
+  await expect(page.getByRole('cell',{name:'Owned p95 latency (ms)',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Generate Report',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await expect(dialog).toContainText('OWNED_WORKLOAD');
+  await expect(dialog).toContainText('250 before / 200 after');
+  await expect(dialog.getByRole('row').filter({hasText:'Owned query p95 latency'})).toContainText('240');
+  await expect(dialog.getByRole('row').filter({hasText:'Owned throughput'})).toContainText('-20%');
 });
 test('navigation stays horizontal and readable on desktop and mobile',async({page})=>{
   await fixture(page);await page.goto('/');

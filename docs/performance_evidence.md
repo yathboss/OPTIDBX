@@ -54,10 +54,30 @@ At most 250,000 latency samples are retained; overflow invalidates a claim inste
 of silently estimating from a truncated sample. Warm-up queries are excluded.
 
 These direct workload measurements are distinct from the existing dashboard DB
-statistics, which are database-wide, and from the tuner's existing telemetry-based
-KEEP/ROLLBACK evaluation. CPU, memory and disk telemetry remain available through
-the live/history views and each run's experiment ID. This feature does not change
-the detector or force it to act. A verified rollback proves recovery, not speed.
+statistics, which are database-wide. CPU, memory and disk telemetry remain available
+through the live/history views and each run's experiment ID. This feature does not
+change the detector or force it to act. A verified rollback proves recovery, not speed.
+
+The tuner's own KEEP/ROLLBACK decision now also uses owned-workload client
+measurements (p95 latency and QPS over a pre-apply baseline window versus the
+post-apply observation window), evaluated by the configurable `keep_policy` in
+`config/config.yaml` (default `net_benefit`). That operational decision is
+deliberately separate from, and less strict than, this study's frozen verdict
+criteria below: the tuner may KEEP a large throughput gain that costs some tail
+latency, whereas `IMPROVEMENT_SUPPORTED` additionally requires the p95 interval
+upper bound to stay within +5%. A KEEP is an operational decision on one owned
+workload; `IMPROVEMENT_SUPPORTED` is a conservative, repeated-pair statistical claim.
+Operational decisions still enforce the original 10% degradation veto on both
+latency and throughput, even if a separate policy cap is configured more loosely.
+The baseline now requires warm-up plus a full measurement window before apply;
+default baseline and post-settle observation windows are both 25 seconds, with at
+least 30 wholly contained completed queries each. Unavailable owned evidence is
+explicitly insufficient, never replaced by database-wide TPS. The dashboard and
+observation report label owned p95/QPS separately from historical database telemetry.
+
+Earlier cold-start cycles showing approximately 2x QPS and 5/5 KEEP are invalid
+as performance evidence: the baseline included workload ramp-up. Preserve those
+artifacts but do not cite them as improvement or a validated KEEP rate.
 
 ## Verdict rules
 

@@ -104,6 +104,27 @@ these are not isolated per-session benchmark measurements.
 
 - Shared `config/config.yaml`: 5-second sampling, three-reading confirmation,
   30-second observation, 30-second cooldown, value whitelist and metric tolerances.
+- KEEP/ROLLBACK for an owned workload is judged on that workload's own
+  client-observed queries (median/p95 latency and QPS over a pre-apply baseline
+  window versus the post-apply observation window), not database-wide telemetry.
+  The decision uses a configurable `keep_policy` (default `net_benefit`: keep when
+  the weighted throughput gain outweighs the latency cost, bounded by a hard
+  `max_latency_regression_percent` cap, default 10%; the global 10%
+  `degradation_percent` independently limits both axes and cannot be overridden by
+  a more permissive policy cap. `latency_first` and `throughput_first` are also
+  available. OS resource degradation and increased error rates remain vetoes.
+  At least 30 completed queries are required in each window. With the default
+  timings, a 15-second warm-up precedes a complete 25-second baseline; mutation
+  waits until both exist. The first 5 seconds after apply settle, followed by a
+  fixed 25-second observation. Queries crossing boundaries are excluded.
+  Apply/restore starts a new measurement epoch. Missing owned evidence never
+  falls back to database telemetry. Only legacy executors without the owned
+  measurement interface retain the earlier comparison; unbound monitoring cannot
+  apply any action.
+- A reduction rolled back for performance is remembered per workload-condition
+  signature (parallel-worker and CPU bands) and not retried under comparable
+  conditions until `rejection_memory_ttl_seconds` elapses or conditions change
+  materially. This memory is session-scoped and in-memory, not persisted.
 - New `BoundWorkloadGroup` reuses `BoundWorkloadSession`. It pauses query admission,
   drains in-flight work, checks session identity, changes each owned session and
   verifies every result. Partial application attempts restoration on every member.
@@ -137,8 +158,14 @@ these are not isolated per-session benchmark measurements.
 
 ## Verification and evidence
 
-See [V1 test evidence](testing/safe_v1.md). The live result was **ROLLBACK**, not a
-performance win. KEEP and failure paths are also covered with controlled test data.
+See [V1 test evidence](testing/safe_v1.md). The original V1 live result was
+**ROLLBACK**. Later HIGH cycles recorded KEEP outcomes, but their apparent ~2x gain
+was traced to a cold-start baseline and is **not valid performance evidence**.
+Warm-up-excluded exploratory comparisons found little benefit under the tested
+settings. A >=50% valid KEEP rate remains unproven. Current safeguards require a
+warm, complete owned-workload baseline before mutation, fixed equal measurement
+windows, and no fallback when owned measurements fail. KEEP and failure paths are
+also covered with controlled test data.
 The earlier [Phase 3 handoff](phase3_integration.md) documents OS validation and
 historical branch integration; its default-unbound-dashboard limitation is now
 resolved by starting an owned workload.

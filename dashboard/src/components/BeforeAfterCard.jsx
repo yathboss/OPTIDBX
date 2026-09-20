@@ -10,7 +10,7 @@ export default function BeforeAfterCard({action, runMeta = {}}) {
     {action && <ReportButton run={{...runMeta,id:action.experiment_id,status:action.outcome || 'Incomplete',actions:[action]}}/>}
     <p>{action?.reason || 'Start a workload, then approve a recommendation or enable auto-tuning. Decisions use a recent baseline and 30 seconds of observed telemetry.'}</p>
   </div>;
-  const fields = [['latency', 'Latency (ms)'], ['throughput', 'Throughput (TPS)'], ['cpu', 'CPU (%)'],
+  const fields = [['latency', data.owned ? 'Owned p95 latency (ms)' : 'Latency (ms)'], ['throughput', data.owned ? 'Owned throughput (QPS)' : 'Throughput (database TPS)'], ['cpu', 'CPU (%)'],
     ['memory', 'Memory (%)'], ['diskRead', 'Disk read (bytes / interval)'], ['diskWrite', 'Disk write (bytes / interval)']];
   return <div className="comparison-card">
     <h3>Observation result: {data.outcome || 'In progress'}</h3>

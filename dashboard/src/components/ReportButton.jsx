@@ -31,6 +31,8 @@ function ReportContent({report}) {
       {report.actions.map((record, i) => <section key={i}>
         <h2>{record.outcome || 'Observation incomplete'}</h2>
         <p>{record.reason || 'No decision reason recorded.'}</p>
+        <p>Decision source: {record.evaluation_source || 'Legacy database telemetry'} · Policy: {record.keep_policy || 'Legacy tolerance rules'}</p>
+        {record.evaluation_source === 'OWNED_WORKLOAD' && <p>Owned queries: {record.before_owned?.successful_queries ?? 'Unavailable'} before / {record.after_owned?.successful_queries ?? 'Unavailable'} after · Window: {record.owned_window_seconds ?? 'Unavailable'}s · Warm-up required: {record.baseline_warmup_seconds ?? 'Unavailable'}s</p>}
         <p>Action: {record.action?.action_id ?? record.action_id ?? 'Unavailable'}<br/>
           Setting: {record.action?.parameter || 'max_parallel_workers_per_gather'} · {record.action?.old_value ?? 'Unavailable'} → {record.action?.new_value ?? 'Unavailable'}</p>
         <p>Execution: {record.automatic === true ? 'Automatic' : record.automatic === false ? 'Manually approved' : 'Unavailable'} · Scope: {record.scope?.scope ?? 'Unavailable'} · Bound sessions: {record.scope?.sessions?.length ?? 'Unavailable'}<br/>Action timestamp: {record.action?.timestamp ?? 'Unavailable'} · Observed duration: {format(record.observation_elapsed_seconds)} seconds</p>
