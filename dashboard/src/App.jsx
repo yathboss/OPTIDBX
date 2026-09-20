@@ -9,9 +9,6 @@ import {
   Layers,
   FileCode2,
   Users,
-  AlertCircle,
-  Clock,
-  ShieldCheck,
 } from 'lucide-react';
 import Header from './components/Header';
 import TopSummary from './components/TopSummary';
@@ -24,10 +21,12 @@ import BeforeAfterCard from './components/BeforeAfterCard';
 import TuningHistoryTable from './components/TuningHistoryTable';
 import EvaluationView from './components/EvaluationView';
 import PerformanceEvidence from './components/PerformanceEvidence';
+import DemoView from './components/DemoView';
+import {useNotify, useNotice} from './components/Notifications';
 import { api } from './services/api';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('demo');
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
   const [tunerStatus, setTunerStatus] = useState(null);
@@ -44,6 +43,17 @@ export default function App() {
   const fetching = useRef(false);
   const mutating = useRef(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  const notify = useNotify();
+  useNotice(actionError || errorMessage);
+  useNotice(tunerStatus?.last_error);
+  useNotice(workloadStatus?.error);
+  const previousState = useRef(null);
+  useEffect(() => {
+    const state = tunerStatus?.state;
+    if (state && previousState.current && state !== previousState.current) notify(`Tuning stage: ${state.replaceAll('_', ' ')}`, state === 'ROLLBACK_FAILED' ? 'error' : 'info');
+    if (state) previousState.current = state;
+  }, [tunerStatus?.state, notify]);
 
   // Helper to format byte counts into MB
   const formatBytesToMB = (bytes) => {
@@ -125,7 +135,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const mutate = async operation => {
+  const mutate = async (operation, success = 'Request completed.') => {
     if (mutating.current) return;
     mutating.current = true;
     setPending(true);
@@ -133,7 +143,11 @@ export default function App() {
     try {
       const result = await operation();
       if (result.status !== 200) setActionError(typeof result.message === 'string' ? result.message : JSON.stringify(result.message));
+      else notify(success, 'success');
       await fetchData();
+      return result;
+    } catch (error) {
+      setActionError(error.message || 'Request failed.');
     } finally {
       mutating.current = false;
       setPending(false);
@@ -161,28 +175,17 @@ export default function App() {
           <button className="btn btn-secondary" onClick={() => setActiveTab('evidence')}>View comparison</button>
           <button className="btn btn-danger" disabled={pending} onClick={() => mutate(api.cancelBenchmark)}>Cancel active comparison</button>
         </div>}
-        {(actionError || errorMessage) && <div className="alert-banner alert-danger" role="alert">{actionError || errorMessage}</div>}
-        {tunerStatus?.last_error && <div className="alert-banner alert-warning" role="alert">{tunerStatus.last_error}</div>}
-        {/* Offline / Warning Alerts (Task 25) */}
-        {!isLive && (
-          <div className="alert-banner alert-danger">
-            <AlertCircle size={18} />
-            <span>
-              <strong>Backend Offline:</strong> FastAPI is not responding on <code>http://localhost:8000</code>. Run <code>uvicorn backend.main:app --port 8000</code> to start the live telemetry engine.
-            </span>
-          </div>
-        )}
-
-        {isLive && isWaiting && (
-          <div className="alert-banner alert-warning">
-            <Clock size={18} />
-            <span>
-              <strong>{tunerStatus?.running ? 'Waiting for Real Telemetry: ' : 'Telemetry paused: '}</strong>
-              {tunerStatus?.running ? 'Collectors are warming up or waiting for a valid paired interval.' : 'Start a workload or the telemetry loop to collect new samples.'}
-            </span>
-          </div>
-        )}
-
+        {(activeTab === 'demo' || activeTab === 'tuning') && <DemoView status={tunerStatus} workload={workloadStatus} pending={pending}
+          onStart={profile => mutate(async () => {
+            const mode = await api.setTunerMode('recommendation');
+            if (mode.status !== 200) return mode;
+            return api.startWorkload(profile, 180);
+          }, 'Demo started. Collecting a baseline in recommendation mode.')}
+          onStop={() => mutate(api.stopWorkload, 'Workload stopped.')}
+          onApprove={id => mutate(() => api.approve(id), 'Recommendation submitted. Check the observation result below.')}
+          onRollback={id => mutate(() => api.rollback(id), 'Restore request completed. Check the verified outcome.')}
+          onMode={mode => mutate(() => api.setTunerMode(mode), `Mode changed to ${mode}.`)} />}
+        <details className="advanced-controls"><summary>Advanced controls & live status</summary>
         {/* Action Controls Bar (Tasks 15, 16, 17) */}
         <ActionControls
           tunerStatus={tunerStatus}
@@ -206,8 +209,10 @@ export default function App() {
           onStart={(profile, duration) => mutate(() => api.startWorkload(profile, duration))}
           onStop={() => mutate(() => api.stopWorkload())} />
 
+        </details>
+
         {/* VIEW 1: MAIN DASHBOARD */}
-        {activeTab === 'evidence' && <PerformanceEvidence />}
+        {(activeTab === 'experiments' || activeTab === 'evidence') && <div className="results-view"><h2>Results & Reports</h2><p>Review a recorded run, generate its report, or collect stronger evidence with a paired comparison.</p><EvaluationView experiments={experiments} error={experimentError}/><details className="advanced-controls" open={activeTab === 'evidence' || undefined}><summary>Performance Evidence: paired comparisons</summary><PerformanceEvidence /></details></div>}
         {activeTab === 'dashboard' && (
           <>
             {/* OS Metrics Grid (Task 9 & 26) */}
@@ -341,10 +346,6 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 4: EVALUATION & BENCHMARKS (Tasks 20, 21, 29) */}
-        {activeTab === 'experiments' && (
-          <EvaluationView experiments={experiments} error={experimentError} />
-        )}
       </main>
 
       <footer className="app-footer">

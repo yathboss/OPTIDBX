@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {FlaskConical, Download, ShieldCheck} from 'lucide-react';
+import {useNotice, useNotify} from './Notifications';
 import {api} from '../services/api';
 
 const names = {NOT_EVALUATED:'Not evaluated', INCONCLUSIVE:'Inconclusive',
@@ -12,6 +13,8 @@ export default function PerformanceEvidence() {
   const [records, setRecords] = useState([]), [selected, setSelected] = useState(null);
   const [form, setForm] = useState(initial), [pending, setPending] = useState(false);
   const [error, setError] = useState(null), [loadError, setLoadError] = useState(null);
+  const notify = useNotify();
+  useNotice(error || loadError);
   const fetching = useRef(false), mutating = useRef(false);
   const refresh = useCallback(async () => {
     if (fetching.current) return;
@@ -25,6 +28,7 @@ export default function PerformanceEvidence() {
   }, []);
   useEffect(() => {refresh(); const timer = setInterval(refresh, 2000); return () => clearInterval(timer);}, [refresh]);
   const current = records.find(item => item.id === selected) || records[0];
+  useNotice(current?.error);
   const active = records.find(item => ['RUNNING','CANCELLING'].includes(item.status));
   const verdict = current?.evaluation?.verdict || 'NOT_EVALUATED';
   const progress = current?.progress;
@@ -39,14 +43,14 @@ export default function PerformanceEvidence() {
     try {
       const response = await operation();
       if (response.status !== 200) setError(typeof response.message === 'string' ? response.message : JSON.stringify(response.message));
-      else if (response.data?.id) {setSelected(response.data.id); setRecords(old => [response.data, ...old.filter(r => r.id !== response.data.id)]);}
+      else if (response.data?.id) {notify(`Comparison ${response.data.status || 'updated'}.`, 'success');setSelected(response.data.id); setRecords(old => [response.data, ...old.filter(r => r.id !== response.data.id)]);}
       await refresh();
     } finally {mutating.current = false; setPending(false);}
   };
   return <section className="evidence-view">
     <div className="section-title"><FlaskConical size={20}/>Performance Evidence</div>
     <p>Compare unchanged PostgreSQL settings with OptiDBX auto-tuning on the same owned workload. Every claim stays linked to its runs.</p>
-    {(error || loadError) && <div className="alert-banner alert-danger" role="alert">{error || loadError}</div>}
+
     <div className="summary-card evidence-form">
       <h3>Run a fair comparison</h3>
       <div className="control-group">

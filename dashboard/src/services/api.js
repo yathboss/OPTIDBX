@@ -52,6 +52,7 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  getDemoSetup: () => request('/demo/setup'),
   getBenchmarks: () => request('/benchmarks'),
   startBenchmark: config => request('/benchmarks/start', {method:'POST', body:JSON.stringify(config)}),
   cancelBenchmark: () => request('/benchmarks/cancel', {method:'POST'}),

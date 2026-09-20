@@ -1,5 +1,4 @@
 import React from 'react';
-import { LayoutDashboard, LineChart, History, FlaskConical } from 'lucide-react';
 
 export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable }) {
   const getConnectionBadge = () => {
@@ -35,42 +34,12 @@ export default function Header({ activeTab, setActiveTab, isLive, isWaiting, tel
         </div>
         <div>
           <h1 className="brand-title">OptiDBX</h1>
-          <p className="brand-subtitle">Adaptive OS–DBMS Co-Tuning System</p>
+          <p className="brand-subtitle">Understand. Tune. Verify.</p>
         </div>
 
-        <nav className="nav-tabs">
-          <button className={`nav-tab ${activeTab === 'evidence' ? 'active' : ''}`}
-            onClick={() => setActiveTab('evidence')}>
-            <FlaskConical size={16} /> Performance Evidence
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <LayoutDashboard size={16} />
-            Live Dashboard
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'metrics' ? 'active' : ''}`}
-            onClick={() => setActiveTab('metrics')}
-          >
-            <LineChart size={16} />
-            Telemetry Trends
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'tuning' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tuning')}
-          >
-            <History size={16} />
-            Tuning Recommendations
-          </button>
-          <button
-            className={`nav-tab ${activeTab === 'experiments' ? 'active' : ''}`}
-            onClick={() => setActiveTab('experiments')}
-          >
-            <FlaskConical size={16} />
-            Evaluation & Benchmarks
-          </button>
+        <nav className="nav-tabs" aria-label="Main navigation">
+          {[['demo','Demo'],['dashboard','Live Metrics'],['tuning','Recommendations'],['experiments','Results & Reports']].map(([key,label]) =>
+            <button key={key} className={`nav-tab ${(activeTab === key || key === 'experiments' && activeTab === 'evidence') ? 'active' : ''}`} aria-current={activeTab === key ? 'page' : undefined} onClick={() => setActiveTab(key)}>{label}</button>)}
         </nav>
       </div>
 
