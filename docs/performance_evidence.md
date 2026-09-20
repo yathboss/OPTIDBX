@@ -22,7 +22,9 @@ This screen compares the same owned PostgreSQL workload in two modes:
    The minimum workload time is 35 minutes, plus setup and action cooldown.
 4. Click **Start comparison**. Follow the current run, warm-up/measurement phase,
    query throughput, p95 latency and tuner state. Manual workload and tuning
-   mutations are refused while the comparison owns the controls.
+   controls are disabled while the comparison owns the sessions. The banner's
+   **View comparison** opens progress; **Cancel active comparison** safely
+   releases the workload before you start a manual run.
 5. Review the verdict, paired changes, each run's metrics and action outcomes.
    **Download JSON** includes the configuration, random seed, order, source and
    dataset metadata, measurements and action records. **Download CSV** gives
@@ -81,8 +83,8 @@ this workload, configuration, dataset and host. No general speedup is promised.
 ## Storage and interfaces
 
 No PostgreSQL migration is required. Existing experiments, system/DB metrics and
-action history retain their schemas. Workload status adds an optional
-`measurements` object. Comparison artifacts are atomic, fsynced JSON snapshots in
+action history retain their schemas. Workload status adds optional
+`measurements` and `benchmark_id` fields. Comparison artifacts are atomic, fsynced JSON snapshots in
 `.optidbx/benchmarks/`, separate from the PostgreSQL telemetry tables and ignored
 by Git. Run as one local API process with write access to that directory.
 
@@ -113,3 +115,5 @@ checksum. Configuration and code must remain unchanged during a study. A Git
 lookup failure is recorded as unavailable, never substituted with a guessed hash.
 
 See [test results and real pilot evidence](testing/performance_evidence.tdd.md).
+The [control-feedback regression report](testing/control_feedback.tdd.md) records
+the browser error fix and the subsequent full HIGH study's timeout failure.

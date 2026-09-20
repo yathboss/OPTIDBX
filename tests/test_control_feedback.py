@@ -24,7 +24,9 @@ def test_comparison_conflict_is_readable_by_trusted_browser(monkeypatch, origin,
 def test_workload_status_exposes_comparison_ownership_between_runs():
     from backend.services.workload_service import WorkloadService
 
-    runtime = SimpleNamespace(lifecycle=SimpleNamespace(status=lambda: {"recovery_required": False}))
+    runtime = SimpleNamespace(
+        lifecycle=SimpleNamespace(status=lambda: {"recovery_required": False})
+    )
     service = WorkloadService(runtime)
     service.manager.reservation = "active-study"
     assert service.get_status().model_dump()["benchmark_id"] == "active-study"
