@@ -1,0 +1,16 @@
+{
+  "platform": "linux",
+  "uid": 105,
+  "claim": "Verified mechanics only; no performance improvement claim",
+  "postgresql": {
+    "old": 2,
+    "applied": 1,
+    "restored": 2,
+    "scope": {
+      "available": true,
+      "scope": "bound_workload_session",
+      "workload_id": "phase3-disposable-validation",
+      "backend_pid": 444
+    }
+  }
+}

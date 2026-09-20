@@ -1,0 +1,237 @@
+{
+  "scenario": "normal",
+  "experiment_id": 7,
+  "thresholds": {
+    "cpu_high_percent": 90.0,
+    "memory_high_percent": 85.0,
+    "context_switches_high_per_interval": 3000,
+    "active_workers_high": 4,
+    "query_latency_high_ms": 200.0
+  },
+  "parallelism_before": 2,
+  "parallelism_after": 2,
+  "samples": [
+    {
+      "status": {
+        "state": "MONITORING",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (0/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 5.7,
+          "context_switches": 253137,
+          "active_workers": 0,
+          "query_latency_ms": 0.063,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 0
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-16T21:17:14.059143Z",
+        "consecutive_bad_readings": 0,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-16T21:17:14.059143Z",
+        "os_metrics": {
+          "timestamp": "2026-09-16T21:17:14.059143Z",
+          "cpu_percent": 5.7,
+          "memory_percent": 7.9,
+          "disk_read_bytes": 73302016,
+          "disk_write_bytes": 107540480,
+          "context_switches": 253137
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-16T21:17:14.059116Z",
+          "query_latency_ms": 0.063,
+          "throughput_tps": 1399.98,
+          "temp_files_bytes": 0,
+          "active_workers": 0
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "MONITORING",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (0/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 5.9,
+          "context_switches": 270595,
+          "active_workers": 0,
+          "query_latency_ms": 0.037,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 0
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-16T21:17:19.067955Z",
+        "consecutive_bad_readings": 0,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-16T21:17:19.067955Z",
+        "os_metrics": {
+          "timestamp": "2026-09-16T21:17:19.067955Z",
+          "cpu_percent": 5.9,
+          "memory_percent": 8.3,
+          "disk_read_bytes": 46731264,
+          "disk_write_bytes": 100757504,
+          "context_switches": 270595
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-16T21:17:19.067931Z",
+          "query_latency_ms": 0.037,
+          "throughput_tps": 1552.89,
+          "temp_files_bytes": 0,
+          "active_workers": 0
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "MONITORING",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (0/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 5.9,
+          "context_switches": 278042,
+          "active_workers": 0,
+          "query_latency_ms": 0.024,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 0
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-16T21:17:24.078705Z",
+        "consecutive_bad_readings": 0,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-16T21:17:24.078705Z",
+        "os_metrics": {
+          "timestamp": "2026-09-16T21:17:24.078705Z",
+          "cpu_percent": 5.9,
+          "memory_percent": 8.6,
+          "disk_read_bytes": 26005504,
+          "disk_write_bytes": 93577216,
+          "context_switches": 278042
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-16T21:17:24.078679Z",
+          "query_latency_ms": 0.024,
+          "throughput_tps": 1632.98,
+          "temp_files_bytes": 0,
+          "active_workers": 0
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "MONITORING",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (0/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 6.1,
+          "context_switches": 246562,
+          "active_workers": 0,
+          "query_latency_ms": 0.021,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 0
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-16T21:17:29.087668Z",
+        "consecutive_bad_readings": 0,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-16T21:17:29.087668Z",
+        "os_metrics": {
+          "timestamp": "2026-09-16T21:17:29.087668Z",
+          "cpu_percent": 6.1,
+          "memory_percent": 8.7,
+          "disk_read_bytes": 8003584,
+          "disk_write_bytes": 84230144,
+          "context_switches": 246562
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-16T21:17:29.087643Z",
+          "query_latency_ms": 0.021,
+          "throughput_tps": 1441.6,
+          "temp_files_bytes": 0,
+          "active_workers": 0
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "MONITORING",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (0/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 6.4,
+          "context_switches": 305257,
+          "active_workers": 0,
+          "query_latency_ms": 0.015,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 0
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-16T21:17:34.096279Z",
+        "consecutive_bad_readings": 0,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-16T21:17:34.096279Z",
+        "os_metrics": {
+          "timestamp": "2026-09-16T21:17:34.096279Z",
+          "cpu_percent": 6.4,
+          "memory_percent": 8.7,
+          "disk_read_bytes": 2686976,
+          "disk_write_bytes": 102359040,
+          "context_switches": 305257
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-16T21:17:34.096258Z",
+          "query_latency_ms": 0.015,
+          "throughput_tps": 1798.47,
+          "temp_files_bytes": 0,
+          "active_workers": 0
+        }
+      }
+    }
+  ],
+  "saved_actions": [],
+  "api_verified": true
+}

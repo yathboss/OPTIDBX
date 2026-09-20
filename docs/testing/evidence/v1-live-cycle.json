@@ -1,0 +1,911 @@
+{
+  "validation": "REAL PostgreSQL and OS telemetry",
+  "started_at": "2026-09-19T14:23:38.323520+00:00",
+  "status_samples": [
+    {
+      "at": "2026-09-19T14:23:44.644732+00:00",
+      "state": "MONITORING",
+      "telemetry_available": false,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 0,
+      "evidence": {}
+    },
+    {
+      "at": "2026-09-19T14:23:48.682815+00:00",
+      "state": "BOTTLENECK_CANDIDATE",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.6,
+        "context_switches": 4632,
+        "active_workers": 5,
+        "query_latency_ms": 546.391,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:23:52.733551+00:00",
+      "state": "BOTTLENECK_CANDIDATE",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.7,
+        "context_switches": 4134,
+        "active_workers": 7,
+        "query_latency_ms": 570.561,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 2
+      }
+    },
+    {
+      "at": "2026-09-19T14:23:56.796856+00:00",
+      "state": "ACTION_APPLIED",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 30,
+      "evidence": {
+        "cpu_percent": 99.7,
+        "context_switches": 4060,
+        "active_workers": 7,
+        "query_latency_ms": 588.857,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 3
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:00.838840+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 26,
+      "evidence": {
+        "cpu_percent": 92.0,
+        "context_switches": 5724,
+        "active_workers": 7,
+        "query_latency_ms": 506.578,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:04.926361+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 22,
+      "evidence": {
+        "cpu_percent": 92.0,
+        "context_switches": 5724,
+        "active_workers": 7,
+        "query_latency_ms": 506.578,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:08.977335+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 18,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 4272,
+        "active_workers": 7,
+        "query_latency_ms": 580.766,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:13.057528+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 14,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 3670,
+        "active_workers": 7,
+        "query_latency_ms": 739.305,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:17.138752+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 9,
+      "evidence": {
+        "cpu_percent": 99.8,
+        "context_switches": 3806,
+        "active_workers": 6,
+        "query_latency_ms": 779.375,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:21.228285+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 5,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 3766,
+        "active_workers": 6,
+        "query_latency_ms": 747.634,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:25.304064+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 1,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 3777,
+        "active_workers": 7,
+        "query_latency_ms": 745.518,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:29.359202+00:00",
+      "state": "OBSERVING",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 3777,
+        "active_workers": 7,
+        "query_latency_ms": 745.518,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:33.422297+00:00",
+      "state": "ROLLBACK",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 27,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.9,
+        "context_switches": 3943,
+        "active_workers": 7,
+        "query_latency_ms": 742.697,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:39.566759+00:00",
+      "state": "COOLDOWN",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 21,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.8,
+        "context_switches": 3868,
+        "active_workers": 7,
+        "query_latency_ms": 740.546,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:45.681613+00:00",
+      "state": "COOLDOWN",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 15,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.8,
+        "context_switches": 3646,
+        "active_workers": 7,
+        "query_latency_ms": 817.852,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:51.812331+00:00",
+      "state": "COOLDOWN",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 8,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.8,
+        "context_switches": 3801,
+        "active_workers": 5,
+        "query_latency_ms": 790.451,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:24:57.945394+00:00",
+      "state": "COOLDOWN",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 2,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.8,
+        "context_switches": 3775,
+        "active_workers": 7,
+        "query_latency_ms": 755.322,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    },
+    {
+      "at": "2026-09-19T14:25:04.072196+00:00",
+      "state": "BOTTLENECK_CANDIDATE",
+      "telemetry_available": true,
+      "cooldown_remaining_seconds": 0,
+      "observation_remaining_seconds": 0,
+      "evidence": {
+        "cpu_percent": 99.7,
+        "context_switches": 4238,
+        "active_workers": 7,
+        "query_latency_ms": 792.506,
+        "cpu_high_percent": 90.0,
+        "context_switches_high_per_interval": 3000,
+        "active_workers_high": 4,
+        "query_latency_high_ms": 200.0,
+        "consecutive_bad_readings": 1
+      }
+    }
+  ],
+  "experiment_id": 15,
+  "action": {
+    "action": {
+      "action_id": "ecaa6d48-dc69-4d13-aad3-77d1261dbd22",
+      "action_type": "REDUCE_DB_PARALLELISM",
+      "target": "postgresql",
+      "parameter": "max_parallel_workers_per_gather",
+      "direction": "decrease",
+      "old_value": 2,
+      "new_value": 1,
+      "reason": "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+      "status": "RECOMMENDED",
+      "timestamp": "2026-09-19T14:23:55.315864Z"
+    },
+    "before": {
+      "query_latency_ms": 568.603,
+      "throughput_tps": 74.79,
+      "cpu_percent": 99.66666666666667,
+      "memory_percent": 9.833333333333334,
+      "disk_read_bytes": 0,
+      "disk_write_bytes": 75093.33333333333
+    },
+    "baseline_samples": 3,
+    "baseline_started_at": "2026-09-19T14:23:45.317211+00:00",
+    "baseline_ended_at": "2026-09-19T14:23:55.315864+00:00",
+    "after": {
+      "query_latency_ms": 722.5491666666667,
+      "throughput_tps": 50.75,
+      "cpu_percent": 99.88333333333334,
+      "memory_percent": 9.9,
+      "disk_read_bytes": 0,
+      "disk_write_bytes": 172032
+    },
+    "automatic": true,
+    "transitions": [
+      "RECOMMENDATION_READY",
+      "ACTION_APPLIED",
+      "OBSERVING",
+      "OBSERVING",
+      "OBSERVING",
+      "OBSERVING",
+      "OBSERVING",
+      "OBSERVING",
+      "OBSERVING",
+      "ROLLBACK",
+      "COOLDOWN",
+      "MONITORING"
+    ],
+    "scope": {
+      "available": true,
+      "scope": "bound_workload_group",
+      "workload_id": "experiment-15",
+      "sessions": [
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-0",
+          "backend_pid": 5982,
+          "backend_start": "2026-09-19 14:23:40.233421+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-1",
+          "backend_pid": 5983,
+          "backend_start": "2026-09-19 14:23:40.236217+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-2",
+          "backend_pid": 5984,
+          "backend_start": "2026-09-19 14:23:40.238198+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-3",
+          "backend_pid": 5985,
+          "backend_start": "2026-09-19 14:23:40.240159+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-4",
+          "backend_pid": 5986,
+          "backend_start": "2026-09-19 14:23:40.241955+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-5",
+          "backend_pid": 5987,
+          "backend_start": "2026-09-19 14:23:40.243849+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-6",
+          "backend_pid": 5988,
+          "backend_start": "2026-09-19 14:23:40.246329+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-7",
+          "backend_pid": 5989,
+          "backend_start": "2026-09-19 14:23:40.248388+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-8",
+          "backend_pid": 5990,
+          "backend_start": "2026-09-19 14:23:40.250304+00:00"
+        },
+        {
+          "available": true,
+          "scope": "bound_workload_session",
+          "workload_id": "experiment-15-9",
+          "backend_pid": 5991,
+          "backend_start": "2026-09-19 14:23:40.252192+00:00"
+        }
+      ]
+    },
+    "experiment_id": 15,
+    "reason": "Degraded or insufficient improvement across observation metrics",
+    "state": "MONITORING",
+    "verified_applied_value": 1,
+    "observation_samples": 6,
+    "observation_elapsed_seconds": 33.83865596600003,
+    "verified_restored_value": 2,
+    "outcome": "ROLLBACK"
+  },
+  "cycle_completed": true,
+  "workload_end": {
+    "error": null,
+    "clients": 0,
+    "completed_queries": 1237,
+    "duration_seconds": 180,
+    "recovery_required": false,
+    "running": false,
+    "profile": "HIGH",
+    "experiment_id": 15,
+    "started_at": "2026-09-19T14:23:40.271101+00:00",
+    "details": "Owned read-only analytical sessions; external pgbench is not controlled"
+  },
+  "experiment": {
+    "id": 15,
+    "name": "Managed analytical workload (10 owned sessions)",
+    "workload_type": "HIGH",
+    "status": "COMPLETED",
+    "created_at": "2026-09-19T14:23:40.254998+00:00",
+    "started_at": "2026-09-19T14:23:40.254998+00:00",
+    "ended_at": "2026-09-19T14:25:08.453925+00:00",
+    "duration_seconds": 88,
+    "aggregate_metrics": {
+      "query_latency_ms": 695.3667058823529,
+      "throughput_tps": 59.37882352941176,
+      "cpu_percent": 99.00588235294117,
+      "memory_percent": 9.894117647058824,
+      "active_workers": 7.0
+    },
+    "actions": [
+      {
+        "action": {
+          "action_id": "ecaa6d48-dc69-4d13-aad3-77d1261dbd22",
+          "action_type": "REDUCE_DB_PARALLELISM",
+          "target": "postgresql",
+          "parameter": "max_parallel_workers_per_gather",
+          "direction": "decrease",
+          "old_value": 2,
+          "new_value": 1,
+          "reason": "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+          "status": "RECOMMENDED",
+          "timestamp": "2026-09-19T14:23:55.315864Z"
+        },
+        "before": {
+          "query_latency_ms": 568.603,
+          "throughput_tps": 74.79,
+          "cpu_percent": 99.66666666666667,
+          "memory_percent": 9.833333333333334,
+          "disk_read_bytes": 0,
+          "disk_write_bytes": 75093.33333333333
+        },
+        "baseline_samples": 3,
+        "baseline_started_at": "2026-09-19T14:23:45.317211+00:00",
+        "baseline_ended_at": "2026-09-19T14:23:55.315864+00:00",
+        "after": {
+          "query_latency_ms": 722.5491666666667,
+          "throughput_tps": 50.75,
+          "cpu_percent": 99.88333333333334,
+          "memory_percent": 9.9,
+          "disk_read_bytes": 0,
+          "disk_write_bytes": 172032
+        },
+        "automatic": true,
+        "transitions": [
+          "RECOMMENDATION_READY",
+          "ACTION_APPLIED",
+          "OBSERVING",
+          "OBSERVING",
+          "OBSERVING",
+          "OBSERVING",
+          "OBSERVING",
+          "OBSERVING",
+          "OBSERVING",
+          "ROLLBACK"
+        ],
+        "scope": {
+          "available": true,
+          "scope": "bound_workload_group",
+          "workload_id": "experiment-15",
+          "sessions": [
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-0",
+              "backend_pid": 5982,
+              "backend_start": "2026-09-19 14:23:40.233421+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-1",
+              "backend_pid": 5983,
+              "backend_start": "2026-09-19 14:23:40.236217+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-2",
+              "backend_pid": 5984,
+              "backend_start": "2026-09-19 14:23:40.238198+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-3",
+              "backend_pid": 5985,
+              "backend_start": "2026-09-19 14:23:40.240159+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-4",
+              "backend_pid": 5986,
+              "backend_start": "2026-09-19 14:23:40.241955+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-5",
+              "backend_pid": 5987,
+              "backend_start": "2026-09-19 14:23:40.243849+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-6",
+              "backend_pid": 5988,
+              "backend_start": "2026-09-19 14:23:40.246329+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-7",
+              "backend_pid": 5989,
+              "backend_start": "2026-09-19 14:23:40.248388+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-8",
+              "backend_pid": 5990,
+              "backend_start": "2026-09-19 14:23:40.250304+00:00"
+            },
+            {
+              "available": true,
+              "scope": "bound_workload_session",
+              "workload_id": "experiment-15-9",
+              "backend_pid": 5991,
+              "backend_start": "2026-09-19 14:23:40.252192+00:00"
+            }
+          ]
+        },
+        "experiment_id": 15,
+        "reason": "Degraded or insufficient improvement across observation metrics",
+        "state": "ROLLBACK",
+        "verified_applied_value": 1,
+        "observation_samples": 6,
+        "observation_elapsed_seconds": 33.83865596600003,
+        "verified_restored_value": 2,
+        "outcome": "ROLLBACK",
+        "action_id": "ecaa6d48-dc69-4d13-aad3-77d1261dbd22",
+        "bottleneck": "CPU_PARALLELISM"
+      }
+    ],
+    "before_metrics": {
+      "query_latency_ms": 568.603,
+      "throughput_tps": 74.79,
+      "cpu_percent": 99.66666666666667,
+      "memory_percent": 9.833333333333334,
+      "disk_read_bytes": 0,
+      "disk_write_bytes": 75093.33333333333
+    },
+    "after_metrics": {
+      "query_latency_ms": 722.5491666666667,
+      "throughput_tps": 50.75,
+      "cpu_percent": 99.88333333333334,
+      "memory_percent": 9.9,
+      "disk_read_bytes": 0,
+      "disk_write_bytes": 172032
+    },
+    "overall_result": "ROLLBACK"
+  },
+  "telemetry": [
+    {
+      "timestamp": "2026-09-19T14:23:45.317211+00:00",
+      "os": {
+        "cpu_percent": 99.6,
+        "memory_percent": 9.7,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 20480,
+        "context_switches": 4632
+      },
+      "db": {
+        "query_latency_ms": 546.391,
+        "throughput_tps": 83.39,
+        "temp_files_bytes": 0,
+        "active_workers": 5
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:23:50.304612+00:00",
+      "os": {
+        "cpu_percent": 99.7,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 16384,
+        "context_switches": 4134
+      },
+      "db": {
+        "query_latency_ms": 570.561,
+        "throughput_tps": 70.98,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:23:55.315864+00:00",
+      "os": {
+        "cpu_percent": 99.7,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 188416,
+        "context_switches": 4060
+      },
+      "db": {
+        "query_latency_ms": 588.857,
+        "throughput_tps": 70.0,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:00.295134+00:00",
+      "os": {
+        "cpu_percent": 92.0,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 32768,
+        "disk_write_bytes": 167936,
+        "context_switches": 5724
+      },
+      "db": {
+        "query_latency_ms": 506.578,
+        "throughput_tps": 83.6,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:04.706915+00:00",
+      "os": {
+        "cpu_percent": 99.9,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 438272,
+        "context_switches": 4272
+      },
+      "db": {
+        "query_latency_ms": 580.766,
+        "throughput_tps": 62.6,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:09.734122+00:00",
+      "os": {
+        "cpu_percent": 99.9,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 151552,
+        "context_switches": 3670
+      },
+      "db": {
+        "query_latency_ms": 739.305,
+        "throughput_tps": 49.89,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:14.722766+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 131072,
+        "context_switches": 3806
+      },
+      "db": {
+        "query_latency_ms": 779.375,
+        "throughput_tps": 46.21,
+        "temp_files_bytes": 0,
+        "active_workers": 6
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:19.724836+00:00",
+      "os": {
+        "cpu_percent": 99.9,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 122880,
+        "context_switches": 3766
+      },
+      "db": {
+        "query_latency_ms": 747.634,
+        "throughput_tps": 48.0,
+        "temp_files_bytes": 0,
+        "active_workers": 6
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:24.725064+00:00",
+      "os": {
+        "cpu_percent": 99.9,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 57344,
+        "context_switches": 3777
+      },
+      "db": {
+        "query_latency_ms": 745.518,
+        "throughput_tps": 47.8,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:29.733077+00:00",
+      "os": {
+        "cpu_percent": 99.9,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 131072,
+        "context_switches": 3943
+      },
+      "db": {
+        "query_latency_ms": 742.697,
+        "throughput_tps": 50.0,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:34.090398+00:00",
+      "os": {
+        "cpu_percent": 94.1,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 131072,
+        "context_switches": 4637
+      },
+      "db": {
+        "query_latency_ms": 617.547,
+        "throughput_tps": 70.4,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:39.094941+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 245760,
+        "context_switches": 3868
+      },
+      "db": {
+        "query_latency_ms": 740.546,
+        "throughput_tps": 56.0,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:44.082974+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 57344,
+        "context_switches": 3646
+      },
+      "db": {
+        "query_latency_ms": 817.852,
+        "throughput_tps": 52.0,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:49.082712+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 49152,
+        "context_switches": 3801
+      },
+      "db": {
+        "query_latency_ms": 790.451,
+        "throughput_tps": 56.2,
+        "temp_files_bytes": 0,
+        "active_workers": 5
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:54.086821+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 10.0,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 90112,
+        "context_switches": 3775
+      },
+      "db": {
+        "query_latency_ms": 755.322,
+        "throughput_tps": 53.4,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:24:59.093728+00:00",
+      "os": {
+        "cpu_percent": 99.8,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 0,
+        "disk_write_bytes": 81920,
+        "context_switches": 3706
+      },
+      "db": {
+        "query_latency_ms": 759.328,
+        "throughput_tps": 55.2,
+        "temp_files_bytes": 0,
+        "active_workers": 5
+      }
+    },
+    {
+      "timestamp": "2026-09-19T14:25:04.111109+00:00",
+      "os": {
+        "cpu_percent": 99.7,
+        "memory_percent": 9.9,
+        "disk_read_bytes": 24576,
+        "disk_write_bytes": 516096,
+        "context_switches": 4238
+      },
+      "db": {
+        "query_latency_ms": 792.506,
+        "throughput_tps": 53.77,
+        "temp_files_bytes": 0,
+        "active_workers": 7
+      }
+    }
+  ],
+  "finished_at": "2026-09-19T14:25:13.079412+00:00"
+}

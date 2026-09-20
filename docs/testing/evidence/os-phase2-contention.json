@@ -1,0 +1,321 @@
+{
+  "scenario": "parallel",
+  "experiment_id": 12,
+  "thresholds": {
+    "cpu_high_percent": 90.0,
+    "memory_high_percent": 85.0,
+    "context_switches_high_per_interval": 3000,
+    "active_workers_high": 4,
+    "query_latency_high_ms": 200.0
+  },
+  "parallelism_before": 2,
+  "parallelism_after": 2,
+  "samples": [
+    {
+      "status": {
+        "state": "BOTTLENECK_CANDIDATE",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (1/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 95.1,
+          "context_switches": 60110,
+          "active_workers": 7,
+          "query_latency_ms": 572.535,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 1
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-19T13:29:06.909138Z",
+        "consecutive_bad_readings": 1,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED",
+        "active_action": null,
+        "capabilities": {
+          "available": false,
+          "reason": "No explicitly bound workload connection"
+        },
+        "observation_remaining_seconds": 0,
+        "cooldown_remaining_seconds": 0,
+        "recovery_required": false,
+        "os_persistence_status": "SAVED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-19T13:29:06.909138Z",
+        "os_metrics": {
+          "timestamp": "2026-09-19T13:29:06.857773Z",
+          "cpu_percent": 95.1,
+          "memory_percent": 9.2,
+          "disk_read_bytes": 127709184,
+          "disk_write_bytes": 147308544,
+          "context_switches": 60110
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-19T13:29:06.909138Z",
+          "query_latency_ms": 572.535,
+          "throughput_tps": 51.62,
+          "temp_files_bytes": 0,
+          "active_workers": 7
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "BOTTLENECK_CANDIDATE",
+        "mode": "recommendation",
+        "detected_bottleneck": "NONE",
+        "reason": "No confirmed bottleneck (2/3 CPU-contention samples).",
+        "evidence": {
+          "cpu_percent": 99.8,
+          "context_switches": 4011,
+          "active_workers": 6,
+          "query_latency_ms": 595.079,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 2
+        },
+        "recommended_action": null,
+        "timestamp": "2026-09-19T13:29:11.931402Z",
+        "consecutive_bad_readings": 2,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "NOT_REQUESTED",
+        "active_action": null,
+        "capabilities": {
+          "available": false,
+          "reason": "No explicitly bound workload connection"
+        },
+        "observation_remaining_seconds": 0,
+        "cooldown_remaining_seconds": 0,
+        "recovery_required": false,
+        "os_persistence_status": "SAVED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-19T13:29:11.931402Z",
+        "os_metrics": {
+          "timestamp": "2026-09-19T13:29:11.917926Z",
+          "cpu_percent": 99.8,
+          "memory_percent": 9.2,
+          "disk_read_bytes": 81920,
+          "disk_write_bytes": 20013056,
+          "context_switches": 4011
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-19T13:29:11.931402Z",
+          "query_latency_ms": 595.079,
+          "throughput_tps": 55.51,
+          "temp_files_bytes": 0,
+          "active_workers": 6
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "RECOMMENDATION_READY",
+        "mode": "recommendation",
+        "detected_bottleneck": "CPU_PARALLELISM",
+        "reason": "CPU, context switches, parallel workers and query latency met or exceeded their thresholds for 3 consecutive samples; possible CPU/parallelism contention. This association does not establish causation.",
+        "evidence": {
+          "cpu_percent": 99.8,
+          "context_switches": 3924,
+          "active_workers": 7,
+          "query_latency_ms": 595.45,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 3
+        },
+        "recommended_action": {
+          "action_id": "5f2253a5-44a0-43b7-944b-a47e9330372a",
+          "action_type": "REDUCE_DB_PARALLELISM",
+          "target": "postgresql",
+          "parameter": "max_parallel_workers_per_gather",
+          "direction": "decrease",
+          "old_value": 2,
+          "new_value": 1,
+          "reason": "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+          "status": "RECOMMENDED",
+          "timestamp": "2026-09-19T13:29:16.967150Z"
+        },
+        "timestamp": "2026-09-19T13:29:16.967150Z",
+        "consecutive_bad_readings": 3,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "SAVED",
+        "active_action": null,
+        "capabilities": {
+          "available": false,
+          "reason": "No explicitly bound workload connection"
+        },
+        "observation_remaining_seconds": 0,
+        "cooldown_remaining_seconds": 0,
+        "recovery_required": false,
+        "os_persistence_status": "SAVED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-19T13:29:16.967150Z",
+        "os_metrics": {
+          "timestamp": "2026-09-19T13:29:16.937916Z",
+          "cpu_percent": 99.8,
+          "memory_percent": 9.2,
+          "disk_read_bytes": 0,
+          "disk_write_bytes": 16302080,
+          "context_switches": 3924
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-19T13:29:16.967150Z",
+          "query_latency_ms": 595.45,
+          "throughput_tps": 54.19,
+          "temp_files_bytes": 0,
+          "active_workers": 7
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "RECOMMENDATION_READY",
+        "mode": "recommendation",
+        "detected_bottleneck": "CPU_PARALLELISM",
+        "reason": "CPU, context switches, parallel workers and query latency met or exceeded their thresholds for 3 consecutive samples; possible CPU/parallelism contention. This association does not establish causation.",
+        "evidence": {
+          "cpu_percent": 99.8,
+          "context_switches": 3481,
+          "active_workers": 7,
+          "query_latency_ms": 727.796,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 3
+        },
+        "recommended_action": {
+          "action_id": "5f2253a5-44a0-43b7-944b-a47e9330372a",
+          "action_type": "REDUCE_DB_PARALLELISM",
+          "target": "postgresql",
+          "parameter": "max_parallel_workers_per_gather",
+          "direction": "decrease",
+          "old_value": 2,
+          "new_value": 1,
+          "reason": "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+          "status": "RECOMMENDED",
+          "timestamp": "2026-09-19T13:29:16.967150Z"
+        },
+        "timestamp": "2026-09-19T13:29:22.032639Z",
+        "consecutive_bad_readings": 3,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "SAVED",
+        "active_action": null,
+        "capabilities": {
+          "available": false,
+          "reason": "No explicitly bound workload connection"
+        },
+        "observation_remaining_seconds": 0,
+        "cooldown_remaining_seconds": 0,
+        "recovery_required": false,
+        "os_persistence_status": "SAVED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-19T13:29:22.032639Z",
+        "os_metrics": {
+          "timestamp": "2026-09-19T13:29:22.017297Z",
+          "cpu_percent": 99.8,
+          "memory_percent": 9.2,
+          "disk_read_bytes": 57344,
+          "disk_write_bytes": 10559488,
+          "context_switches": 3481
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-19T13:29:22.032639Z",
+          "query_latency_ms": 727.796,
+          "throughput_tps": 46.26,
+          "temp_files_bytes": 0,
+          "active_workers": 7
+        }
+      }
+    },
+    {
+      "status": {
+        "state": "RECOMMENDATION_READY",
+        "mode": "recommendation",
+        "detected_bottleneck": "CPU_PARALLELISM",
+        "reason": "CPU, context switches, parallel workers and query latency met or exceeded their thresholds for 3 consecutive samples; possible CPU/parallelism contention. This association does not establish causation.",
+        "evidence": {
+          "cpu_percent": 99.9,
+          "context_switches": 3279,
+          "active_workers": 7,
+          "query_latency_ms": 818.084,
+          "cpu_high_percent": 90.0,
+          "context_switches_high_per_interval": 3000,
+          "active_workers_high": 4,
+          "query_latency_high_ms": 200.0,
+          "consecutive_bad_readings": 3
+        },
+        "recommended_action": {
+          "action_id": "5f2253a5-44a0-43b7-944b-a47e9330372a",
+          "action_type": "REDUCE_DB_PARALLELISM",
+          "target": "postgresql",
+          "parameter": "max_parallel_workers_per_gather",
+          "direction": "decrease",
+          "old_value": 2,
+          "new_value": 1,
+          "reason": "Reduce PostgreSQL parallelism by one approved step to evaluate CPU contention.",
+          "status": "RECOMMENDED",
+          "timestamp": "2026-09-19T13:29:16.967150Z"
+        },
+        "timestamp": "2026-09-19T13:29:27.068013Z",
+        "consecutive_bad_readings": 3,
+        "telemetry_available": true,
+        "running": false,
+        "last_error": null,
+        "persistence_status": "SAVED",
+        "active_action": null,
+        "capabilities": {
+          "available": false,
+          "reason": "No explicitly bound workload connection"
+        },
+        "observation_remaining_seconds": 0,
+        "cooldown_remaining_seconds": 0,
+        "recovery_required": false,
+        "os_persistence_status": "SAVED"
+      },
+      "telemetry": {
+        "timestamp": "2026-09-19T13:29:27.068013Z",
+        "os_metrics": {
+          "timestamp": "2026-09-19T13:29:27.044571Z",
+          "cpu_percent": 99.9,
+          "memory_percent": 9.2,
+          "disk_read_bytes": 0,
+          "disk_write_bytes": 7901184,
+          "context_switches": 3279
+        },
+        "db_metrics": {
+          "timestamp": "2026-09-19T13:29:27.068013Z",
+          "query_latency_ms": 818.084,
+          "throughput_tps": 41.18,
+          "temp_files_bytes": 0,
+          "active_workers": 7
+        }
+      }
+    }
+  ],
+  "saved_actions": [
+    [
+      "RECOMMENDED",
+      "2",
+      "1"
+    ]
+  ],
+  "api_verified": true
+}
