@@ -146,3 +146,138 @@ def test_restart_marks_unfinished_evidence_interrupted(benchmark):
     service.store.save({'id':'old', 'status':'RUNNING', 'runs':[]})
     BenchmarkService(manager, service.store)
     assert service.store.get('old')['status'] == 'INTERRUPTED'
+
+
+def test_cancel_with_unresolved_restore_is_failed_not_successful_cancel(benchmark, monkeypatch):
+    service, manager, _ = benchmark
+    def cancel_wait(*args):
+        manager.connections = [object()]
+        manager.error = 'Rollback unresolved; sessions retained'
+        raise InterruptedError('cancelled')
+    monkeypatch.setattr(service, '_wait', cancel_wait)
+    service.start({})
+    service.thread.join(5)
+    assert service.status()['status'] == 'FAILED'
+    assert 'Rollback unresolved' in service.status()['error']
+    assert manager.reservation is None  # Manual recovery must remain accessible.
+
+
+def test_manual_action_rechecks_reservation_at_execution_boundary(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    import threading
+    from fastapi import HTTPException
+    from backend.routes.tuner import approve_action
+    from backend.services import workload_service
+    runtime = Mock()
+    manager = SimpleNamespace(lock=threading.RLock(), reservation='comparison')
+    monkeypatch.setattr(workload_service, 'service_for_runtime', lambda runtime: SimpleNamespace(manager=manager))
+    # Call after the HTTP precheck to model a comparison starting in that gap.
+    with pytest.raises(HTTPException) as error:
+        approve_action('manual', runtime=runtime)
+    assert error.value.status_code == 409
+    runtime.approve.assert_not_called()
+
+
+def test_bounded_measurements_and_empty_window():
+    from workload.measurements import QueryMeasurements
+    metrics = QueryMeasurements(10, 10, capacity=1)
+    assert metrics.summary(9)['throughput_qps'] is None
+    assert metrics.summary(9)['p95_latency_ms'] is None
+    metrics.record(11, 12)
+    metrics.record(12, 13)
+    metrics.record(19, 21)
+    metrics.record(float('nan'), 15)
+    assert metrics.summary(25)['overflow']
+    assert metrics.summary(25)['successful_queries'] == 2
+
+
+@pytest.mark.parametrize('mutation', ['incomplete', 'duplicate', 'overflow', 'missing'])
+def test_invalid_evidence_never_claims_improvement(mutation):
+    from experiments.evidence import evaluate
+    data = rows()
+    if mutation == 'incomplete':
+        data[-1]['status'] = 'FAILED'
+    elif mutation == 'duplicate':
+        data.append(data[-1])
+    elif mutation == 'overflow':
+        data[-1]['metrics']['overflow'] = True
+    else:
+        data[-1]['metrics']['throughput_qps'] = None
+    assert evaluate(data, {'repetitions': 5, 'warmup_seconds': 30})['verdict'] == 'INCONCLUSIVE'
+
+
+def test_error_regression_and_no_action_are_not_success():
+    from experiments.evidence import evaluate
+    data = rows()
+    data[-1]['metrics']['error_rate'] = .01
+    assert evaluate(data, {'repetitions': 5, 'warmup_seconds': 30})['verdict'] == 'REGRESSION_OBSERVED'
+    data = rows()
+    for row in data:
+        row['actions'] = []
+    assert evaluate(data, {'repetitions': 5, 'warmup_seconds': 30})['verdict'] == 'INCONCLUSIVE'
+
+
+@pytest.mark.parametrize('blocked', ['running', 'reservation', 'cooldown', 'whitelist'])
+def test_comparison_refuses_busy_or_unsafe_start(benchmark, blocked):
+    service, manager, starts = benchmark
+    request = {}
+    if blocked == 'cooldown':
+        manager.runtime.lifecycle.status = lambda: {'state': 'COOLDOWN'}
+    elif blocked == 'whitelist':
+        request['initial_parallelism'] = 3
+    else:
+        setattr(manager, blocked, True)
+    with pytest.raises(ValueError):
+        service.start(request)
+    assert not starts
+
+
+def test_wait_exposes_progress_and_rejects_recovery(benchmark):
+    from experiments.benchmark import BenchmarkService
+    service, manager, _ = benchmark
+    service.record = {'progress': {}}
+    BenchmarkService._wait(service, .001, 'MEASURING')
+    assert service.status()['progress']['phase'] == 'MEASURING'
+    manager.runtime.lifecycle.status = lambda: {'state': 'ROLLBACK_FAILED', 'recovery_required': True}
+    with pytest.raises(RuntimeError, match='recovery'):
+        BenchmarkService._wait(service, 1, 'MEASURING')
+    manager.error = 'query disconnected'
+    with pytest.raises(RuntimeError, match='disconnected'):
+        BenchmarkService._wait(service, 1, 'MEASURING')
+    service.cancel_event.set()
+    with pytest.raises(InterruptedError):
+        BenchmarkService._wait(service, 1, 'MEASURING')
+
+
+def test_evidence_api_export_errors_and_current_report(benchmark, monkeypatch):
+    from unittest.mock import Mock
+    from backend.main import app
+    from backend.routes.benchmarks import get_benchmarks
+    from fastapi.testclient import TestClient
+    service, manager, _ = benchmark
+    client = TestClient(app)
+    app.dependency_overrides[get_benchmarks] = lambda: service
+    try:
+        assert client.get('/benchmarks').json() == []
+        response = client.post('/benchmarks/start', json={'repetitions': 1})
+        assert response.status_code == 200
+        service.thread.join(5)
+        identifier = response.json()['id']
+        assert len(client.get('/benchmarks').json()) == 1
+        assert client.get(f'/benchmarks/{identifier}/export').json()['status'] == 'COMPLETED'
+        csv = client.get(f'/benchmarks/{identifier}/export?format=csv')
+        assert csv.status_code == 200 and 'throughput_qps' in csv.text
+        assert client.get(f'/benchmarks/{identifier}/export?format=xml').status_code == 422
+        assert client.get('/benchmarks/unknown/export').status_code == 404
+        assert client.get('/benchmarks/invalid.id/export').status_code == 422
+        assert client.post('/benchmarks/cancel').status_code == 200
+        manager.running = True
+        assert client.post('/benchmarks/start', json={}).status_code == 409
+        manager.running = False
+        monkeypatch.setattr(service.store, 'save', Mock(side_effect=OSError('disk full')))
+        assert client.post('/benchmarks/start', json={}).status_code == 503
+        monkeypatch.setattr(service.store, 'list', Mock(side_effect=ValueError('corrupt')))
+        assert client.get('/benchmarks').status_code == 503
+    finally:
+        app.dependency_overrides.pop(get_benchmarks, None)
