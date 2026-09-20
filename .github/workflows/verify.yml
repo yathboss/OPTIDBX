@@ -16,7 +16,7 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m pytest -q --cov=autotuner --cov=actions --cov=config --cov=workload.managed --cov=workload.runner
+      - run: python -m pytest -q --cov=autotuner --cov=actions --cov=config --cov=workload.managed --cov=workload.runner --cov=workload.measurements --cov=experiments.evidence --cov=experiments.benchmark --cov=backend.routes.benchmarks
       - run: npm ci
         working-directory: dashboard
       - run: npm test && npm run build && npm audit

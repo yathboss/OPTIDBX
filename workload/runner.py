@@ -51,14 +51,19 @@ class ManagedWorkload:
             measurements=self.measurements.summary(time.monotonic()) if self.measurements else None,
         )
 
-    def start(self, profile, duration_seconds, *, owner=None, initial_parallelism=None, warmup_seconds=0):
+    def start(
+        self, profile, duration_seconds, *, owner=None, initial_parallelism=None, warmup_seconds=0
+    ):
         from db_monitor.storage import end_experiment, get_connection, start_experiment
 
         with self.lock:
             if self.reservation is not None and self.reservation != owner:
                 raise ValueError("A benchmark owns the workload; cancel it before manual control")
-            if initial_parallelism is not None and (type(initial_parallelism) is not int or
-                    initial_parallelism not in self.runtime.config.safe_values.max_parallel_workers_per_gather):
+            if initial_parallelism is not None and (
+                type(initial_parallelism) is not int
+                or initial_parallelism
+                not in self.runtime.config.safe_values.max_parallel_workers_per_gather
+            ):
                 raise ValueError("Initial parallelism is outside the configured whitelist")
             if (
                 profile not in ("LOW", "MEDIUM", "HIGH")
@@ -95,8 +100,10 @@ class ManagedWorkload:
                             (f"optidbx-owned-{index}",),
                         )
                         if initial_parallelism is not None:
-                            cur.execute("SELECT set_config('max_parallel_workers_per_gather', %s, false)",
-                                        (str(initial_parallelism),))
+                            cur.execute(
+                                "SELECT set_config('max_parallel_workers_per_gather', %s, false)",
+                                (str(initial_parallelism),),
+                            )
                 self.experiment_id = start_experiment(
                     profile, f"Managed analytical workload ({count} owned sessions)"
                 )
@@ -117,8 +124,9 @@ class ManagedWorkload:
                 self.stop_event.clear()
                 self.running = True
                 self.started_at = datetime.now(UTC).isoformat()
-                self.measurements = QueryMeasurements(time.monotonic() + warmup_seconds,
-                                                      duration_seconds - warmup_seconds)
+                self.measurements = QueryMeasurements(
+                    time.monotonic() + warmup_seconds, duration_seconds - warmup_seconds
+                )
                 self.workers = [
                     threading.Thread(
                         target=self._worker,
@@ -153,8 +161,12 @@ class ManagedWorkload:
                 try:
                     self.group.execute(index, QUERY)
                 except Exception as exc:
-                    self.measurements.record(started, time.monotonic(), error=True,
-                                             timeout=getattr(exc, 'pgcode', None) == '57014')
+                    self.measurements.record(
+                        started,
+                        time.monotonic(),
+                        error=True,
+                        timeout=getattr(exc, "pgcode", None) == "57014",
+                    )
                     raise
                 self.measurements.record(started, time.monotonic())
                 with self._counter_lock:

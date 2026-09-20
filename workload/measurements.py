@@ -1,4 +1,5 @@
 """Bounded client-observed timings, independent of PostgreSQL statistics traffic."""
+
 import math
 import threading
 from array import array
@@ -18,7 +19,7 @@ class QueryMeasurements:
     def __init__(self, start, duration, capacity=250000):
         self.start, self.end = start, start + duration
         self.capacity = capacity
-        self.latencies = array('d')
+        self.latencies = array("d")
         self.successes = self.errors = self.timeouts = 0
         self.overflow = False
         self.lock = threading.Lock()
@@ -42,9 +43,14 @@ class QueryMeasurements:
     def summary(self, now):
         with self.lock:
             elapsed = max(0, min(now, self.end) - self.start)
-            return {'successful_queries': self.successes, 'errors': self.errors,
-                    'timeouts': self.timeouts, 'elapsed_seconds': elapsed,
-                    'throughput_qps': self.successes / elapsed if elapsed else None,
-                    'median_latency_ms': percentile(self.latencies, .5),
-                    'p95_latency_ms': percentile(self.latencies, .95), 'overflow': self.overflow,
-                    'error_rate': self.errors / max(1, self.successes + self.errors)}
+            return {
+                "successful_queries": self.successes,
+                "errors": self.errors,
+                "timeouts": self.timeouts,
+                "elapsed_seconds": elapsed,
+                "throughput_qps": self.successes / elapsed if elapsed else None,
+                "median_latency_ms": percentile(self.latencies, 0.5),
+                "p95_latency_ms": percentile(self.latencies, 0.95),
+                "overflow": self.overflow,
+                "error_rate": self.errors / max(1, self.successes + self.errors),
+            }

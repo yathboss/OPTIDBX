@@ -1,7 +1,7 @@
 """The API controls only sessions owned by its single local runtime."""
 
-from functools import lru_cache
 from contextlib import contextmanager
+from functools import lru_cache
 
 from fastapi import Depends, HTTPException
 
@@ -40,7 +40,9 @@ def manual_control(runtime):
     manager = service_for_runtime(runtime).manager
     with manager.lock:
         if manager.reservation:
-            raise HTTPException(409, 'A benchmark owns these controls. Cancel the comparison first.')
+            raise HTTPException(
+                409, "A benchmark owns these controls. Cancel the comparison first."
+            )
         yield
 
 
