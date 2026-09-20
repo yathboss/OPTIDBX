@@ -6,6 +6,7 @@ from autotuner.models import RuntimeStatus
 from backend.models.tuner import TunerModeRequest, TunerStatusResponse, TuningActionItem
 from backend.services.live_runtime import get_runtime
 from backend.services.tuner_service import TunerService, get_tuner_service
+from backend.services.workload_service import manual_control
 
 router = APIRouter(tags=["tuner"])
 
@@ -18,7 +19,8 @@ def action_history(runtime=Depends(get_runtime)):
 @router.post("/tuner/actions/{action_id}/approve", response_model=RuntimeStatus)
 def approve_action(action_id: str, runtime=Depends(get_runtime)):
     try:
-        return runtime.approve(action_id)
+        with manual_control(runtime):
+            return runtime.approve(action_id)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -26,7 +28,8 @@ def approve_action(action_id: str, runtime=Depends(get_runtime)):
 @router.post("/tuner/actions/{action_id}/rollback", response_model=RuntimeStatus)
 def rollback_action(action_id: str, runtime=Depends(get_runtime)):
     try:
-        return runtime.rollback(action_id)
+        with manual_control(runtime):
+            return runtime.rollback(action_id)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -49,18 +52,22 @@ def get_tuner_status(
 def set_tuner_mode(
     req: TunerModeRequest,
     tuner_service: TunerService = Depends(get_tuner_service),
+    runtime=Depends(get_runtime),
 ) -> TunerStatusResponse:
     """Switches the autotuner operating mode between 'recommendation' and 'auto'."""
-    return tuner_service.set_mode(req.mode)
+    with manual_control(runtime):
+        return tuner_service.set_mode(req.mode)
 
 
 @router.post("/tuner/toggle-monitoring", response_model=TunerStatusResponse)
 def toggle_monitoring(
     active: bool,
     tuner_service: TunerService = Depends(get_tuner_service),
+    runtime=Depends(get_runtime),
 ) -> TunerStatusResponse:
     """Start or stop monitoring."""
-    return tuner_service.set_monitoring(active)
+    with manual_control(runtime):
+        return tuner_service.set_monitoring(active)
 
 
 # Both /tuning/history and /tuner/history for backward and forward compatibility

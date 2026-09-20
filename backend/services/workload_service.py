@@ -1,6 +1,7 @@
 """The API controls only sessions owned by its single local runtime."""
 
 from functools import lru_cache
+from contextlib import contextmanager
 
 from fastapi import Depends, HTTPException
 
@@ -31,6 +32,16 @@ class WorkloadService:
 @lru_cache(maxsize=1)
 def service_for_runtime(runtime):
     return WorkloadService(runtime)
+
+
+@contextmanager
+def manual_control(runtime):
+    """Serialize the ownership check and mutation with comparison startup."""
+    manager = service_for_runtime(runtime).manager
+    with manager.lock:
+        if manager.reservation:
+            raise HTTPException(409, 'A benchmark owns these controls. Cancel the comparison first.')
+        yield
 
 
 def get_workload_service(runtime=Depends(get_runtime)):

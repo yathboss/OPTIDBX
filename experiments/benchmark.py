@@ -9,7 +9,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Literal
 
 from experiments.evidence import CRITERIA, EvidenceStore, evaluate
@@ -188,6 +188,8 @@ class BenchmarkService:
         finally:
             try:
                 self.manager.stop(owner=identifier)
+                if self.manager.connections or self.runtime.lifecycle.status()['recovery_required']:
+                    raise RuntimeError(self.manager.error or 'Rollback unresolved; sessions retained')
             except Exception as exc:
                 with self.lock:
                     self.record.update(status='FAILED', error=f'Cleanup failed: {exc}')
