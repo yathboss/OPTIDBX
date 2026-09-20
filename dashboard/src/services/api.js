@@ -52,6 +52,10 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  getBenchmarks: () => request('/benchmarks'),
+  startBenchmark: config => request('/benchmarks/start', {method:'POST', body:JSON.stringify(config)}),
+  cancelBenchmark: () => request('/benchmarks/cancel', {method:'POST'}),
+  benchmarkExport: (id, format='json') => `${API_BASE_URL}/benchmarks/${encodeURIComponent(id)}/export?format=${format}`,
   checkHealth: async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/health`);

@@ -23,6 +23,7 @@ import TimeSeriesChart from './components/TimeSeriesChart';
 import BeforeAfterCard from './components/BeforeAfterCard';
 import TuningHistoryTable from './components/TuningHistoryTable';
 import EvaluationView from './components/EvaluationView';
+import PerformanceEvidence from './components/PerformanceEvidence';
 import { api } from './services/api';
 
 export default function App() {
@@ -198,6 +199,7 @@ export default function App() {
           onStop={() => mutate(() => api.stopWorkload())} />
 
         {/* VIEW 1: MAIN DASHBOARD */}
+        {activeTab === 'evidence' && <PerformanceEvidence />}
         {activeTab === 'dashboard' && (
           <>
             {/* OS Metrics Grid (Task 9 & 26) */}

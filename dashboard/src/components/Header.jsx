@@ -39,6 +39,10 @@ export default function Header({ activeTab, setActiveTab, isLive, isWaiting, tel
         </div>
 
         <nav className="nav-tabs">
+          <button className={`nav-tab ${activeTab === 'evidence' ? 'active' : ''}`}
+            onClick={() => setActiveTab('evidence')}>
+            <FlaskConical size={16} /> Performance Evidence
+          </button>
           <button
             className={`nav-tab ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}

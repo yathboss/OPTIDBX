@@ -70,6 +70,6 @@ def export_benchmark(identifier: str, format: str = 'json', service=Depends(get_
     writer = csv.DictWriter(output, fieldnames=fields, extrasaction='ignore')
     writer.writeheader()
     for run in record['runs']:
-        writer.writerow({**run, **run['metrics']})
+        writer.writerow({**run, **(run.get('metrics') or {})})
     return Response(output.getvalue(), media_type='text/csv',
                     headers={'Content-Disposition': f'attachment; filename="benchmark-{record["id"]}.csv"'})

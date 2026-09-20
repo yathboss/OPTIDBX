@@ -84,7 +84,12 @@ class BenchmarkService:
                     'query_sha256': hashlib.sha256(QUERY.encode()).hexdigest(),
                     'query': QUERY, 'shared_config': self.runtime.config.model_dump(mode='json'),
                     'measurement': 'Client-observed query round trip including action barrier waits; completed queries fully inside the fixed window; warm-up excluded.'}}
-            self._save()  # Must be durable before starting a workload.
+            try:
+                self._save()  # Must be durable before starting a workload.
+            except OSError:
+                self.record.update(status='FAILED', error='Cannot persist evidence before starting')
+                self.record['evaluation'] = {'verdict': 'INCONCLUSIVE', 'reason': self.record['error']}
+                raise
             self.manager.reservation = identifier
             self.cancel_event.clear()
             self.thread = threading.Thread(target=self._run, daemon=True, name='PerformanceEvidence')
@@ -126,6 +131,7 @@ class BenchmarkService:
     def _run(self):
         identifier = self.record['id']
         cfg = self.record['config']
+        current_run = None
         try:
             # Read the same dataset fingerprint once; no data/schema mutation.
             from db_monitor.storage import get_connection
@@ -144,10 +150,16 @@ class BenchmarkService:
                     raise InterruptedError('Comparison cancelled by user')
                 self._cooldown()
                 self._progress(**spec, run_number=position + 1, total_runs=len(self.record['order']), phase='STARTING')
+                current_run = {**spec, 'status': 'STARTING', 'metrics': None, 'actions': [], 'experiment_id': None}
+                with self.lock:
+                    self.record['runs'].append(current_run)
+                self._save()
                 self.manager.start(cfg['profile'], cfg['warmup_seconds'] + cfg['measurement_seconds'],
                     owner=identifier, initial_parallelism=cfg['initial_parallelism'],
                     warmup_seconds=cfg['warmup_seconds'])
                 experiment_id = self.manager.experiment_id
+                with self.lock:
+                    current_run.update(status='RUNNING', experiment_id=experiment_id)
                 self._wait(cfg['warmup_seconds'], 'WARMUP')
                 with self.runtime._lock:
                     self.runtime.engine.invalidate('Benchmark measurement beginning')
@@ -163,8 +175,7 @@ class BenchmarkService:
                 if spec['mode'] == 'baseline' and actions:
                     raise RuntimeError('Baseline was modified; evidence invalid')
                 with self.lock:
-                    self.record['runs'].append({**spec, 'experiment_id': experiment_id, 'metrics': metrics,
-                        'actions': actions, 'status': 'COMPLETED', 'ended_at': utc()})
+                    current_run.update(metrics=metrics, actions=actions, status='COMPLETED', ended_at=utc())
                 self._save()
             with self.lock:
                 self.record['evaluation'] = evaluate(self.record['runs'], cfg)
@@ -182,6 +193,12 @@ class BenchmarkService:
                     self.record.update(status='FAILED', error=f'Cleanup failed: {exc}')
                     self.record['evaluation'] = {'verdict': 'INCONCLUSIVE', 'reason': self.record['error']}
             with self.lock:
+                if current_run and current_run['status'] != 'COMPLETED':
+                    current_run.update(status=self.record['status'], ended_at=utc())
+                    if current_run.get('experiment_id') is not None:
+                        current_run['metrics'] = self.manager.measurements.summary(time.monotonic())
+                        current_run['actions'] = [action for action in self.runtime.get_action_history()
+                                                  if action.get('experiment_id') == current_run['experiment_id']]
                 self.record['ended_at'] = utc()
                 self.record['progress']['phase'] = self.record['status']
                 try:
