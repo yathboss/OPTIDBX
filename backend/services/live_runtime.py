@@ -74,12 +74,15 @@ class LiveTunerProvider:
         in_memory = [
             TuningActionItem(
                 action_id=str(result.recommended_action.action_id),
+                experiment_id=self.runtime.experiment_id,
+                mode=self.runtime.mode,
                 timestamp=result.recommended_action.timestamp.isoformat(),
                 bottleneck=result.bottleneck.bottleneck_type,
                 parameter=result.recommended_action.parameter,
                 old_value=result.recommended_action.old_value,
                 new_value=result.recommended_action.new_value,
                 status=result.recommended_action.status,
+                decision=None,
                 reason=result.bottleneck.reason,
             )
             for result in self.runtime.get_recommendations()
@@ -88,12 +91,15 @@ class LiveTunerProvider:
         in_memory.extend(
             TuningActionItem(
                 action_id=record["action"]["action_id"],
+                experiment_id=record.get("experiment_id"),
+                mode="auto" if record.get("automatic") else "recommendation",
                 timestamp=record["action"]["timestamp"],
                 bottleneck="CPU_PARALLELISM",
                 parameter=record["action"]["parameter"],
                 old_value=record["action"]["old_value"],
                 new_value=record["action"]["new_value"],
                 status=record.get("outcome", record["state"]),
+                decision=record.get("outcome"),
                 reason=record["reason"],
                 before_metrics=record["before"],
                 after_metrics=record.get("after"),
@@ -135,9 +141,13 @@ class LiveTunerProvider:
                         if action_id and action_id in seen:
                             continue
                         seen.add(action_id)
+                        outcome = envelope.get("outcome")
+                        decision = outcome if outcome in ("KEEP", "ROLLBACK", "ROLLBACK_FAILED") else None
                         items.append(
                             TuningActionItem(
                                 action_id=action_id,
+                                experiment_id=envelope.get("experiment_id"),
+                                mode="auto" if envelope.get("automatic") else "recommendation",
                                 before_metrics=envelope.get("before"),
                                 after_metrics=envelope.get("after"),
                                 timestamp=r["timestamp"].isoformat()
@@ -147,7 +157,8 @@ class LiveTunerProvider:
                                 parameter=r["parameter"],
                                 old_value=r["old_value"],
                                 new_value=r["new_value"],
-                                status=envelope.get("outcome", r["status"]),
+                                status=outcome or r["status"],
+                                decision=decision,
                                 reason=reason_text,
                             )
                         )

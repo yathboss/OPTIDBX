@@ -25,11 +25,45 @@ def approve_action(action_id: str, runtime=Depends(get_runtime)):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
+@router.post("/tuner/apply-recommended", response_model=RuntimeStatus)
+def apply_recommended(runtime=Depends(get_runtime)):
+    """Applies the current active recommendation."""
+    status = runtime.get_status()
+    action = status.recommended_action
+    if action is None:
+        raise HTTPException(status_code=400, detail="No active recommendation to apply")
+    try:
+        with manual_control(runtime):
+            return runtime.approve(str(action.action_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.post("/tuner/actions/{action_id}/rollback", response_model=RuntimeStatus)
 def rollback_action(action_id: str, runtime=Depends(get_runtime)):
     try:
         with manual_control(runtime):
             return runtime.rollback(action_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/tuner/rollback-last", response_model=RuntimeStatus)
+def rollback_last(runtime=Depends(get_runtime)):
+    """Rolls back the most recent applied tuning action."""
+    status = runtime.get_status()
+    action_id = None
+    if status.active_action and status.active_action.get("action"):
+        action_id = status.active_action["action"].get("action_id")
+    if not action_id:
+        history = runtime.get_action_history()
+        if history:
+            action_id = history[-1].get("action", {}).get("action_id")
+    if not action_id:
+        raise HTTPException(status_code=400, detail="No action available to rollback")
+    try:
+        with manual_control(runtime):
+            return runtime.rollback(str(action_id))
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
