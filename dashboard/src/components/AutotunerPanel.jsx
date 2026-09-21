@@ -26,7 +26,7 @@ export default function AutotunerPanel({ tunerStatus }) {
   return (
     <div className="autotuner-panel">
       <div className="section-title">
-        <Sparkles size={18} color="#8b5cf6" />
+        <Sparkles size={18} color="var(--accent-blue)" />
         Autotuner Engine & Bottleneck Analysis
       </div>
 
@@ -100,13 +100,13 @@ export default function AutotunerPanel({ tunerStatus }) {
                   {evidence.active_workers !== undefined && (
                     <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Workers: </span>
-                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#93c5fd' }}>{evidence.active_workers}</strong>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{evidence.active_workers}</strong>
                     </div>
                   )}
                   {evidence.query_latency_ms !== undefined && (
                     <div style={{ background: 'var(--bg-secondary)', padding: '0.4rem 0.6rem', borderRadius: '4px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Latency: </span>
-                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f43f5e' }}>{Number(evidence.query_latency_ms).toFixed(1)} ms</strong>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{Number(evidence.query_latency_ms).toFixed(1)} ms</strong>
                     </div>
                   )}
                 </div>
@@ -115,22 +115,22 @@ export default function AutotunerPanel({ tunerStatus }) {
 
             {/* Recommended Safe Tuning Action Pill */}
             {(tunerStatus?.recommended_action || recommendation?.parameter) && (
-              <div className="recommendation-pill" style={{ background: 'rgba(139, 92, 246, 0.12)', borderColor: 'rgba(139, 92, 246, 0.4)' }}>
-                <Info size={20} color="var(--accent-purple)" style={{ flexShrink: 0 }} />
+              <div className="recommendation-pill">
+                <Info size={20} color="var(--accent-blue)" style={{ flexShrink: 0 }} />
                 <div style={{ width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', color: '#c4b5fd' }}>
+                    <span style={{ fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                       Recommended Safe Tuning Action
                     </span>
-                    <span className="badge badge-purple" style={{ fontSize: '0.7rem' }}>
+                    <span className="badge badge-blue" style={{ fontSize: '0.7rem' }}>
                       STATUS: RECOMMENDED (Not Applied)
                     </span>
                   </div>
-                  <div style={{ marginTop: '0.25rem', fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>
+                  <div style={{ marginTop: '0.25rem', fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                     {recommendation?.parameter ? (
                       <span>
                         <code>{recommendation.parameter}</code>: {recommendation.old_value} &rarr;{' '}
-                        <strong style={{ color: '#a78bfa' }}>{recommendation.new_value}</strong>
+                        <strong style={{ color: 'var(--accent-blue)' }}>{recommendation.new_value}</strong>
                       </span>
                     ) : (
                       tunerStatus.recommended_action
@@ -165,21 +165,15 @@ export default function AutotunerPanel({ tunerStatus }) {
                 </p>
               </div>
 
-              <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                  Persistence Status
-                </div>
-                <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>
-                  Action audit: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong>
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                  OS storage: {tunerStatus?.os_persistence_status} | DB storage: {tunerStatus?.db_persistence_status}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Sampling Interval: <strong>5s</strong> | Candidate Window: <strong>15s</strong> (3 readings)
+              <details className="advanced-inline">
+                <summary>Advanced status</summary>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '.5rem 0 0' }}>
+                  Action audit: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong> &middot; OS storage: {tunerStatus?.os_persistence_status || '—'} &middot; DB storage: {tunerStatus?.db_persistence_status || '—'}
+                </p>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '.4rem 0 0' }}>
+                  Sampling interval 5s &middot; candidate window 15s (3 readings)
+                </p>
+              </details>
             </div>
           </div>
         </div>
