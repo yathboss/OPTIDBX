@@ -25,10 +25,12 @@ import BeforeAfterCard from './components/BeforeAfterCard';
 import TuningHistoryTable from './components/TuningHistoryTable';
 import EvaluationView from './components/EvaluationView';
 import PerformanceEvidence from './components/PerformanceEvidence';
+import MemorySafetyPanel from './components/MemorySafetyPanel';
 import { api } from './services/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedScenario, setSelectedScenario] = useState('ALL');
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
   const [tunerStatus, setTunerStatus] = useState(null);
@@ -208,6 +210,58 @@ export default function App() {
           </div>
         )}
 
+        {/* Task 29: Two-Scenario Demo Selector */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'var(--bg-secondary, #1e293b)',
+            border: '1px solid var(--border-color, #334155)',
+            borderRadius: '8px',
+            padding: '0.6rem 1rem',
+            marginBottom: '1rem',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sparkles size={16} color="#c084fc" />
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Evaluation Demo Scenario:</span>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              className={`btn ${selectedScenario === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }}
+              onClick={() => setSelectedScenario('ALL')}
+            >
+              Unified Dashboard
+            </button>
+            <button
+              className={`btn ${selectedScenario === 'SCENARIO_1' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                fontSize: '0.78rem',
+                padding: '0.3rem 0.7rem',
+                borderColor: selectedScenario === 'SCENARIO_1' ? 'var(--accent-blue)' : undefined,
+              }}
+              onClick={() => setSelectedScenario('SCENARIO_1')}
+            >
+              Scenario 1: CPU / Parallelism
+            </button>
+            <button
+              className={`btn ${selectedScenario === 'SCENARIO_2' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{
+                fontSize: '0.78rem',
+                padding: '0.3rem 0.7rem',
+                borderColor: selectedScenario === 'SCENARIO_2' ? '#8b5cf6' : undefined,
+              }}
+              onClick={() => setSelectedScenario('SCENARIO_2')}
+            >
+              Scenario 2: Work Memory / Temp Spill
+            </button>
+          </div>
+        </div>
+
         {/* Action Controls Bar (Tasks 15, 16, 17) */}
         <ActionControls
           tunerStatus={tunerStatus}
@@ -285,6 +339,9 @@ export default function App() {
                 isWaiting={isWaiting}
               />
             </div>
+
+            {/* OS Memory Safety & work_mem Admission Control (Tasks 4, 5) */}
+            <MemorySafetyPanel memorySafety={tunerStatus?.memory_safety} osMetrics={os} />
 
             {/* DBMS Metrics Grid (Task 10 & 26) */}
             <div className="section-title">
