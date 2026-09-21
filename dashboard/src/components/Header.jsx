@@ -1,53 +1,48 @@
 import React from 'react';
+import { Lock } from 'lucide-react';
+import {PAGES, routeHref} from '../navigation.mjs';
 
-export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable }) {
-  const getConnectionBadge = () => {
-    if (!isLive) {
-      return (
-        <div className="badge badge-rose">
-          <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-rose)' }} />
-          Backend Offline (Port 8000)
-        </div>
-      );
-    }
-    if (isWaiting || !telemetryAvailable) {
-      return (
-        <div className="badge badge-amber">
-          <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-amber)' }} />
-          Waiting for Telemetry
-        </div>
-      );
-    }
-    return (
-      <div className="badge badge-green">
-        <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-green)' }} />
-        Live Telemetry Active
-      </div>
-    );
-  };
+const TABS = Object.entries(PAGES).map(([key, page]) => [key, page.label]);
+
+export default function Header({ activeTab, isLive, isWaiting, telemetryAvailable, locked }) {
+  const connection = !isLive
+    ? { cls: 'badge-rose', dot: 'var(--accent-rose)', text: 'Backend offline' }
+    : (isWaiting || !telemetryAvailable)
+      ? { cls: 'badge-amber', dot: 'var(--accent-amber)', text: 'Standing by' }
+      : { cls: 'badge-green', dot: 'var(--accent-blue)', text: 'Telemetry live' };
 
   return (
     <header className="app-header">
       <div className="header-left">
-        <div className="logo-icon">
-          <span>O</span>
-        </div>
+        <div className="logo-icon"><span>O</span></div>
         <div>
           <h1 className="brand-title">OptiDBX</h1>
           <p className="brand-subtitle">Understand. Tune. Verify.</p>
         </div>
 
         <nav className="nav-tabs" aria-label="Main navigation">
-          {[['demo','Demo'],['dashboard','Live Metrics'],['tuning','Recommendations'],['experiments','Results & Reports']].map(([key,label]) =>
-            <button key={key} className={`nav-tab ${(activeTab === key || key === 'experiments' && activeTab === 'evidence') ? 'active' : ''}`} aria-current={activeTab === key ? 'page' : undefined} onClick={() => setActiveTab(key)}>{label}</button>)}
+          {TABS.map(([key, label]) => (
+            <a
+              key={key}
+              href={routeHref(key)}
+              className={`nav-tab ${activeTab === key ? 'active' : ''}`}
+              aria-current={activeTab === key ? 'page' : undefined}
+              aria-disabled={locked && activeTab !== key || undefined}
+              title={locked && activeTab !== key ? 'Navigation is locked while a session runs' : undefined}
+              onClick={event => {if(locked && activeTab !== key) event.preventDefault();}}
+            >
+              {label}
+            </a>
+          ))}
         </nav>
       </div>
 
       <div className="header-right">
-        <div className="badge badge-blue">
-          Safe V1
+        {locked && <div className="badge badge-amber"><Lock size={12} /> Session running</div>}
+        <div className={`badge ${connection.cls}`}>
+          <span className="pulse-indicator" style={{ backgroundColor: connection.dot }} />
+          {connection.text}
         </div>
-        {getConnectionBadge()}
       </div>
     </header>
   );
