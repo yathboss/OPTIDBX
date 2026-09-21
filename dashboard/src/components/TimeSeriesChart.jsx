@@ -9,8 +9,8 @@ export default function TimeSeriesChart({ historyData = [] }) {
     cpu: {
       label: 'CPU Utilization',
       unit: '%',
-      color: '#3b82f6',
-      fillColor: 'rgba(59, 130, 246, 0.15)',
+      color: '#f4610c',
+      fillColor: 'rgba(244, 97, 12, 0.15)',
       getValue: (item) => item?.os?.cpu_percent ?? 0,
     },
     latency: {
@@ -23,15 +23,15 @@ export default function TimeSeriesChart({ historyData = [] }) {
     throughput: {
       label: 'Throughput',
       unit: 'TPS',
-      color: '#10b981',
-      fillColor: 'rgba(16, 185, 129, 0.15)',
+      color: '#5b6675',
+      fillColor: 'rgba(91, 102, 117, 0.15)',
       getValue: (item) => item?.db?.throughput_tps ?? 0,
     },
     memory: {
       label: 'Memory Usage',
       unit: '%',
-      color: '#8b5cf6',
-      fillColor: 'rgba(139, 92, 246, 0.15)',
+      color: '#94a3b8',
+      fillColor: 'rgba(148, 163, 184, 0.15)',
       getValue: (item) => item?.os?.memory_percent ?? 0,
     },
   };
@@ -200,7 +200,7 @@ export default function TimeSeriesChart({ historyData = [] }) {
               borderRadius: '4px',
               fontSize: '11px',
               fontFamily: 'var(--font-mono)',
-              color: '#fff',
+              color: 'var(--text-primary)',
               pointerEvents: 'none',
               whiteSpace: 'nowrap',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.4)',
