@@ -292,6 +292,23 @@ export default function AutotunerPanel({ tunerStatus }) {
               </div>
             </div>
 
+            {/* Deferred Bottlenecks Notice (Task 20) */}
+            {tunerStatus?.deferred_bottlenecks?.length > 0 && (
+              <div
+                style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '6px',
+                  padding: '0.5rem 0.75rem',
+                  marginBottom: '1rem',
+                  fontSize: '0.8rem',
+                  color: '#fbbf24',
+                }}
+              >
+                <strong>Priority Arbitration Active:</strong> When multiple bottlenecks occur, CPU_PARALLELISM takes priority over WORK_MEM_SPILL. Deferred: <code>{tunerStatus.deferred_bottlenecks.join(', ')}</code> (will be evaluated once CPU settles).
+              </div>
+            )}
+
             {/* Measured Bottleneck Evidence */}
             {evidence && Object.keys(evidence).length > 0 && (
               <div style={{ marginTop: '0.75rem', marginBottom: '1rem' }}>
@@ -376,6 +393,70 @@ export default function AutotunerPanel({ tunerStatus }) {
                       </strong>
                     </div>
                   )}
+                  {(evidence.temp_files_bytes !== undefined || evidence.temp_bytes !== undefined) && (
+                    <div
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>Temp Spill: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f43f5e' }}>
+                        {(Number(evidence.temp_files_bytes ?? evidence.temp_bytes) / (1024 * 1024)).toFixed(1)} MB
+                      </strong>
+                    </div>
+                  )}
+                  {evidence.temp_files !== undefined && (
+                    <div
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>Temp Files: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#f59e0b' }}>
+                        {Number(evidence.temp_files).toLocaleString()}
+                      </strong>
+                    </div>
+                  )}
+                  {evidence.memory_percent !== undefined && (
+                    <div
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>RAM Usage: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#a78bfa' }}>
+                        {Number(evidence.memory_percent).toFixed(1)}%
+                      </strong>
+                    </div>
+                  )}
+                  {evidence.available_gb !== undefined && (
+                    <div
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        padding: '0.4rem 0.6rem',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>Available RAM: </span>
+                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8' }}>
+                        {Number(evidence.available_gb).toFixed(1)} GB
+                      </strong>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -425,9 +506,9 @@ export default function AutotunerPanel({ tunerStatus }) {
                       fontSize: '1rem',
                     }}
                   >
-                    <span>Current: <strong style={{ color: '#93c5fd' }}>{actionData?.old_value ?? 8}</strong></span>
+                    <span>Current: <strong style={{ color: '#93c5fd' }}>{actionData?.old_value ?? (actionData?.parameter === 'work_mem' ? '8MB' : 8)}</strong></span>
                     <ArrowRight size={16} color="var(--accent-purple)" />
-                    <span>Target: <strong style={{ color: '#a78bfa' }}>{actionData?.new_value ?? 6}</strong></span>
+                    <span>Target: <strong style={{ color: '#a78bfa' }}>{actionData?.new_value ?? (actionData?.parameter === 'work_mem' ? '16MB' : 6)}</strong></span>
                   </div>
                   {actionData?.reason && (
                     <div style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -437,6 +518,21 @@ export default function AutotunerPanel({ tunerStatus }) {
                   {actionData?.timestamp && (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       Timestamp: {new Date(actionData.timestamp).toLocaleTimeString()}
+                    </div>
+                  )}
+                  {(actionData?.parameter === 'work_mem' || actionData?.action_type?.includes('WORK_MEM')) && tunerStatus?.memory_safety?.safe_for_memory_increase === false && (
+                    <div
+                      style={{
+                        marginTop: '0.6rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '4px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        border: '1px solid rgba(239, 68, 68, 0.5)',
+                        color: '#fca5a5',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <strong>work_mem increase is blocked due to high OS memory pressure:</strong> {tunerStatus?.memory_safety?.reason || 'Memory pressure threshold exceeded'}.
                     </div>
                   )}
                 </div>
@@ -542,44 +638,51 @@ export default function AutotunerPanel({ tunerStatus }) {
               )}
 
               {/* Task 25: Safe Tuning Parameter Range */}
-              <div
-                style={{
-                  background: 'var(--bg-secondary)',
-                  padding: '0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid var(--border-color)',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
-                  Safe Tuning Range: <code>max_parallel_workers_per_gather</code>
-                </div>
-                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', margin: '0.4rem 0' }}>
-                  {[1, 2, 4, 6, 8].map((val) => {
-                    const isCurrent = (actionData?.new_value ?? 8) === val;
-                    return (
-                      <span
-                        key={val}
-                        style={{
-                          fontFamily: 'var(--font-mono)',
-                          fontSize: '0.75rem',
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '4px',
-                          background: isCurrent ? 'var(--accent-purple)' : 'var(--bg-primary)',
-                          color: isCurrent ? '#fff' : 'var(--text-muted)',
-                          border: `1px solid ${isCurrent ? 'var(--accent-purple)' : 'var(--border-color)'}`,
-                          fontWeight: isCurrent ? 700 : 400,
-                        }}
-                      >
-                        {val} {isCurrent && '★'}
-                      </span>
-                    );
-                  })}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Configured discrete stepping prevents radical parameter degradation.
-                </div>
-              </div>
+              {(() => {
+                const isWorkMem = actionData?.parameter === 'work_mem' || actionData?.action_type?.includes('WORK_MEM') || tunerStatus?.detected_bottleneck === 'WORK_MEM_SPILL';
+                const rangeValues = isWorkMem ? [4, 8, 16, 32, 64] : [1, 2, 4, 6, 8];
+                const activeVal = Number(actionData?.new_value ?? (isWorkMem ? 16 : 6));
+                return (
+                  <div
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      padding: '0.75rem',
+                      borderRadius: '6px',
+                      border: '1px solid var(--border-color)',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
+                      Safe Tuning Range: <code>{isWorkMem ? 'work_mem (MB)' : 'max_parallel_workers_per_gather'}</code>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', margin: '0.4rem 0' }}>
+                      {rangeValues.map((val) => {
+                        const isCurrent = activeVal === val;
+                        return (
+                          <span
+                            key={val}
+                            style={{
+                              fontFamily: 'var(--font-mono)',
+                              fontSize: '0.75rem',
+                              padding: '0.2rem 0.5rem',
+                              borderRadius: '4px',
+                              background: isCurrent ? 'var(--accent-purple)' : 'var(--bg-primary)',
+                              color: isCurrent ? '#fff' : 'var(--text-muted)',
+                              border: `1px solid ${isCurrent ? 'var(--accent-purple)' : 'var(--border-color)'}`,
+                              fontWeight: isCurrent ? 700 : 400,
+                            }}
+                          >
+                            {val}{isWorkMem ? ' MB' : ''} {isCurrent && '★'}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Configured discrete stepping prevents radical parameter degradation.
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Task 26: OS Action Capability Panel */}
               <div

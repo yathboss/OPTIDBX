@@ -15,6 +15,15 @@ class OSMetrics(BaseModel):
     disk_read_bytes: int = Field(..., description="Bytes read from disk since last interval")
     disk_write_bytes: int = Field(..., description="Bytes written to disk since last interval")
     context_switches: int = Field(..., description="Context switches count in interval")
+    available_memory_bytes: int | None = Field(
+        default=None, description="Available OS memory in bytes"
+    )
+    memory_pressure: str = Field(
+        default="NORMAL", description="Memory pressure level: NORMAL, ELEVATED, HIGH, CRITICAL"
+    )
+    safe_for_memory_increase: bool = Field(
+        default=True, description="Whether memory headroom is safe for work_mem expansion"
+    )
 
 
 class DBMetrics(BaseModel):
