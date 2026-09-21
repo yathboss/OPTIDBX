@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layers, Sliders, ShieldAlert, Cpu } from 'lucide-react';
+import { Layers, Sliders, ShieldAlert, Cpu, Clock, CheckCircle2, AlertOctagon } from 'lucide-react';
 
 export default function TopSummary({ tunerStatus, workloadStatus }) {
   const isBottleneck = tunerStatus?.detected_bottleneck && tunerStatus.detected_bottleneck !== 'NONE';
@@ -8,6 +8,61 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
     ? `${workloadStatus.profile || 'ACTIVE'} Workload (Exp #${workloadStatus.experiment_id || '?'})`
     : 'No Active Workload (Idle)';
   const streak = tunerStatus?.consecutive_bad_readings ?? 0;
+  const state = tunerStatus?.state || 'MONITORING';
+  const mode = tunerStatus?.mode === 'auto' ? 'Auto-Tuning Mode' : 'Recommendation Mode';
+
+  // Format state display with timer if observing or in cooldown
+  const getStateDisplay = () => {
+    if (state === 'OBSERVING') {
+      const remaining = tunerStatus?.observation_remaining_seconds ?? 0;
+      return `OBSERVING (${remaining}s remaining)`;
+    }
+    if (state === 'COOLDOWN') {
+      const remaining = tunerStatus?.cooldown_remaining_seconds ?? 0;
+      return `COOLDOWN (${remaining}s remaining)`;
+    }
+    if (state === 'ACTION_APPLIED') {
+      return 'ACTION APPLIED';
+    }
+    if (state === 'RECOMMENDATION_READY') {
+      return 'RECOMMENDATION READY';
+    }
+    if (state === 'BOTTLENECK_CONFIRMED') {
+      return 'BOTTLENECK CONFIRMED';
+    }
+    if (state === 'BOTTLENECK_CANDIDATE') {
+      return `BOTTLENECK CANDIDATE (${streak}/3)`;
+    }
+    if (state === 'ROLLBACK_FAILED') {
+      return 'ROLLBACK FAILED (RECOVERY)';
+    }
+    return state;
+  };
+
+  const getStateColor = () => {
+    switch (state) {
+      case 'KEEP':
+        return '#10b981';
+      case 'ROLLBACK':
+        return '#f59e0b';
+      case 'ROLLBACK_FAILED':
+      case 'FAILED':
+        return '#f43f5e';
+      case 'ACTION_APPLIED':
+      case 'OBSERVING':
+        return '#3b82f6';
+      case 'RECOMMENDATION_READY':
+        return '#a855f7';
+      case 'BOTTLENECK_CONFIRMED':
+        return '#f43f5e';
+      case 'BOTTLENECK_CANDIDATE':
+        return '#f59e0b';
+      case 'COOLDOWN':
+        return '#60a5fa';
+      default:
+        return '#38bdf8';
+    }
+  };
 
   return (
     <div className="summary-bar">
@@ -23,6 +78,7 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
               height: 8,
               borderRadius: '50%',
               backgroundColor: isWorkloadRunning ? '#10b981' : '#6b7280',
+              marginRight: '0.4rem',
             }}
           />
           {workloadLabel}
@@ -33,17 +89,18 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
         <span className="summary-label">
           <Sliders size={14} /> Operating Mode
         </span>
-        <span className="summary-value" style={{ textTransform: 'capitalize' }}>
+        <span className="summary-value" style={{ fontSize: '0.95rem' }}>
           <span
             style={{
               display: 'inline-block',
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: '#3b82f6',
+              backgroundColor: tunerStatus?.mode === 'auto' ? '#a855f7' : '#3b82f6',
+              marginRight: '0.4rem',
             }}
           />
-          {tunerStatus?.mode || 'Recommendation'} Mode
+          {mode}
         </span>
       </div>
 
@@ -51,14 +108,19 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
         <span className="summary-label">
           <Cpu size={14} /> Autotuner State
         </span>
-        <span className="summary-value" style={{ textTransform: 'capitalize', fontSize: '0.95rem' }}>
-          <span className="pulse-indicator" />
-          {tunerStatus?.state || 'MONITORING'}
-          {streak > 0 && streak < 3 && (
-            <span style={{ fontSize: '0.75rem', color: 'var(--accent-amber)', marginLeft: '0.25rem' }}>
-              ({streak}/3)
-            </span>
-          )}
+        <span
+          className="summary-value"
+          style={{
+            fontSize: '0.95rem',
+            color: getStateColor(),
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          <span
+            className="pulse-indicator"
+            style={{ backgroundColor: getStateColor(), marginRight: '0.4rem' }}
+          />
+          {getStateDisplay()}
         </span>
       </div>
 

@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import Header from './components/Header';
 import TopSummary from './components/TopSummary';
@@ -179,6 +180,30 @@ export default function App() {
             <span>
               <strong>{tunerStatus?.running ? 'Waiting for Real Telemetry: ' : 'Telemetry paused: '}</strong>
               {tunerStatus?.running ? 'Collectors are warming up or waiting for a valid paired interval.' : 'Start a workload or the telemetry loop to collect new samples.'}
+            </span>
+          </div>
+        )}
+
+        {/* Auto Mode Notification Banner (Task 6) */}
+        {tunerStatus?.mode === 'auto' && ['BOTTLENECK_CONFIRMED', 'ACTION_APPLIED', 'OBSERVING', 'COOLDOWN'].includes(tunerStatus?.state) && (
+          <div
+            className="alert-banner alert-warning"
+            style={{
+              background: 'rgba(168, 85, 247, 0.15)',
+              borderColor: 'rgba(168, 85, 247, 0.4)',
+              color: '#d8b4fe',
+            }}
+          >
+            <Sparkles size={18} color="#a855f7" />
+            <span>
+              <strong>Auto-Tuning Active:</strong>{' '}
+              {tunerStatus.state === 'BOTTLENECK_CONFIRMED'
+                ? 'Confirmed bottleneck detected. Applying safe tuning action automatically...'
+                : tunerStatus.state === 'ACTION_APPLIED'
+                ? 'Action applied automatically. Entering 30-second observation window...'
+                : tunerStatus.state === 'OBSERVING'
+                ? `Observing system performance after automatic action (${tunerStatus.observation_remaining_seconds || 0}s remaining)...`
+                : `Cooldown in progress (${tunerStatus.cooldown_remaining_seconds || 0}s remaining). No new action will be applied until stable.`}
             </span>
           </div>
         )}
