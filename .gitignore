@@ -63,3 +63,14 @@ Thumbs.db
 *.swo
 # Local recovery evidence must survive restarts and must never be committed.
 .optidbx/
+
+# Local scratch, prompts, handoffs and shared chat screenshots (not part of the product)
+/Context.md
+/promp1.md
+/prompt2.md
+/CLAUDE_HANDOFF.md
+/CODEX_HANDOFF.md
+/image7.png
+/screenshots/
+/.claude-flow/
+/.optidbx/
