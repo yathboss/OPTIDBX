@@ -110,8 +110,10 @@ export const api = {
     method: 'POST', body: JSON.stringify({profile, duration_seconds}),
   }),
   stopWorkload: () => request('/workload/stop', {method: 'POST'}),
-  approve: id => request(`/tuner/actions/${encodeURIComponent(id)}/approve`, {method: 'POST'}),
-  rollback: id => request(`/tuner/actions/${encodeURIComponent(id)}/rollback`, {method: 'POST'}),
+  approve: id => (id ? request(`/tuner/actions/${encodeURIComponent(id)}/approve`, {method: 'POST'}) : request('/tuner/apply-recommended', {method: 'POST'})),
+  applyRecommendedAction: () => request('/tuner/apply-recommended', {method: 'POST'}),
+  rollback: id => (id ? request(`/tuner/actions/${encodeURIComponent(id)}/rollback`, {method: 'POST'}) : request('/tuner/rollback-last', {method: 'POST'})),
+  rollbackLastAction: () => request('/tuner/rollback-last', {method: 'POST'}),
 
   getExperiments: () => request('/experiments'),
 

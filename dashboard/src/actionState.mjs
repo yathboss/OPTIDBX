@@ -1,6 +1,7 @@
 export function actionState(status = {}, pending = false) {
   const bound = !!status.capabilities?.available;
   const action = status.active_action;
+  const inActionLifecycle = ['ACTION_APPLIED', 'OBSERVING', 'COOLDOWN'].includes(status.state);
   return {
     canApply: !pending && bound && !!status.telemetry_available &&
       status.state === 'RECOMMENDATION_READY' &&
@@ -10,7 +11,9 @@ export function actionState(status = {}, pending = false) {
       (['ACTION_APPLIED', 'OBSERVING', 'KEEP', 'ROLLBACK_FAILED'].includes(status.state) ||
        action?.outcome === 'KEEP'),
     rollbackId: action?.action?.action_id,
-    canAuto: !pending && bound && !status.recovery_required,
+    canAuto: !pending && bound && !status.recovery_required && !inActionLifecycle,
+    inLifecycle: inActionLifecycle,
+    canChangeMode: !pending && !inActionLifecycle && !status.recovery_required,
   };
 }
 

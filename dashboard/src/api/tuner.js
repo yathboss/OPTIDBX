@@ -13,5 +13,9 @@ export const tunerApi = {
       method: 'POST',
     }),
   getTuningHistory: () => request('/tuning/history'),
+  approve: (id) => request(`/tuner/actions/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+  applyRecommended: () => request('/tuner/apply-recommended', { method: 'POST' }),
+  rollback: (id) => request(`/tuner/actions/${encodeURIComponent(id)}/rollback`, { method: 'POST' }),
+  rollbackLast: () => request('/tuner/rollback-last', { method: 'POST' }),
 };
 
