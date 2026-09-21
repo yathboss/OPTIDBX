@@ -44,15 +44,28 @@ export default function BeforeAfterCard({ action }) {
   const before = action.before || {};
   const after = action.after;
   const isObserving = !after && ['ACTION_APPLIED', 'OBSERVING'].includes(action.state);
-  const outcome = action.outcome || (action.state === 'KEEP' ? 'KEEP' : action.state === 'ROLLBACK' ? 'ROLLBACK' : action.state === 'ROLLBACK_FAILED' ? 'ROLLBACK_FAILED' : null);
+  const outcome = action.outcome || (
+    action.state === 'KEEP' ? 'KEEP' :
+    action.state === 'ROLLBACK' ? 'ROLLBACK' :
+    action.state === 'INCONCLUSIVE' ? 'INCONCLUSIVE' :
+    action.state === 'ROLLBACK_FAILED' ? 'ROLLBACK_FAILED' : null
+  );
   const isKeep = outcome === 'KEEP';
   const isRollback = outcome === 'ROLLBACK';
+  const isInconclusive = outcome === 'INCONCLUSIVE';
   const isRollbackFailed = outcome === 'ROLLBACK_FAILED';
   const actionDetails = action.action || {};
 
+  const isWorkMem = actionDetails?.parameter === 'work_mem' ||
+    actionDetails?.action_type?.includes('WORK_MEM') ||
+    action.bottleneck === 'WORK_MEM_SPILL';
+  const bottleneckName = action.bottleneck || (isWorkMem ? 'WORK_MEM_SPILL' : 'CPU_PARALLELISM');
+
   // Compute percentage changes
   const calcDelta = (beforeVal, afterVal) => {
-    if (!Number.isFinite(beforeVal) || !Number.isFinite(afterVal) || beforeVal <= 0) return null;
+    if (!Number.isFinite(beforeVal) || !Number.isFinite(afterVal)) return null;
+    if (beforeVal === 0 && afterVal === 0) return 0;
+    if (beforeVal <= 0) return null;
     return ((afterVal - beforeVal) / beforeVal) * 100;
   };
 
@@ -60,6 +73,11 @@ export default function BeforeAfterCard({ action }) {
   const tpsDelta = after ? calcDelta(before.throughput_tps, after.throughput_tps) : null;
   const cpuDelta = after ? calcDelta(before.cpu_percent, after.cpu_percent) : null;
   const memoryDelta = after ? calcDelta(before.memory_percent, after.memory_percent) : null;
+  const tempSpillDelta = after ? calcDelta(
+    before.temp_files_bytes ?? before.temp_bytes ?? 0,
+    after.temp_files_bytes ?? after.temp_bytes ?? 0
+  ) : null;
+  const ctxDelta = after ? calcDelta(before.context_switches, after.context_switches) : null;
 
   return (
     <div className="comparison-card-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -86,17 +104,25 @@ export default function BeforeAfterCard({ action }) {
         </div>
       )}
 
-      {/* Task 14 & 15: Decision Outcome Banner */}
+      {/* Decision Outcome Banner */}
       {outcome && (
         <div
           style={{
             background: isKeep
               ? 'rgba(16, 185, 129, 0.15)'
+              : isInconclusive
+              ? 'rgba(148, 163, 184, 0.15)'
               : isRollback
               ? 'rgba(245, 158, 11, 0.15)'
               : 'rgba(244, 63, 94, 0.15)',
             border: `1px solid ${
-              isKeep ? 'rgba(16, 185, 129, 0.5)' : isRollback ? 'rgba(245, 158, 11, 0.5)' : 'rgba(244, 63, 94, 0.5)'
+              isKeep
+                ? 'rgba(16, 185, 129, 0.5)'
+                : isInconclusive
+                ? 'rgba(148, 163, 184, 0.5)'
+                : isRollback
+                ? 'rgba(245, 158, 11, 0.5)'
+                : 'rgba(244, 63, 94, 0.5)'
             }`,
             borderRadius: '8px',
             padding: '1rem 1.25rem',
@@ -107,6 +133,8 @@ export default function BeforeAfterCard({ action }) {
         >
           {isKeep ? (
             <CheckCircle2 size={24} color="#10b981" style={{ flexShrink: 0, marginTop: 2 }} />
+          ) : isInconclusive ? (
+            <Clock size={24} color="#94a3b8" style={{ flexShrink: 0, marginTop: 2 }} />
           ) : isRollback ? (
             <RotateCcw size={24} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
           ) : (
@@ -119,22 +147,42 @@ export default function BeforeAfterCard({ action }) {
                   fontSize: '1.05rem',
                   fontWeight: 700,
                   fontFamily: 'var(--font-mono)',
-                  color: isKeep ? '#10b981' : isRollback ? '#f59e0b' : '#f43f5e',
+                  color: isKeep ? '#10b981' : isInconclusive ? '#cbd5e1' : isRollback ? '#f59e0b' : '#f43f5e',
                 }}
               >
                 DECISION: {outcome}
               </span>
               <span
-                className={`badge ${isKeep ? 'badge-green' : isRollback ? 'badge-amber' : 'badge-rose'}`}
+                className={`badge ${
+                  isKeep
+                    ? 'badge-green'
+                    : isInconclusive
+                    ? 'badge-purple'
+                    : isRollback
+                    ? 'badge-amber'
+                    : 'badge-rose'
+                }`}
                 style={{ fontSize: '0.75rem' }}
               >
-                {isKeep ? 'OPTIMIZATION KEPT' : isRollback ? 'SETTING ROLLED BACK' : 'RECOVERY REQUIRED'}
+                {isKeep
+                  ? 'OPTIMIZATION KEPT'
+                  : isInconclusive
+                  ? 'INCONCLUSIVE (REVERTED)'
+                  : isRollback
+                  ? 'SETTING ROLLED BACK'
+                  : 'RECOVERY REQUIRED'}
               </span>
             </div>
             <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-              {action.reason}
+              {action.reason || (
+                isInconclusive
+                  ? 'No significant improvement observed (<5% latency delta); rolled back to safe baseline.'
+                  : isRollback && isWorkMem
+                  ? 'Action rolled back to protect system memory safety.'
+                  : 'Observation evaluation completed.'
+              )}
             </p>
-            {isRollback && action.verified_restored_value !== undefined && (
+            {(isRollback || isInconclusive) && action.verified_restored_value !== undefined && (
               <div
                 style={{
                   marginTop: '0.5rem',
@@ -266,12 +314,46 @@ export default function BeforeAfterCard({ action }) {
                 </td>
               </tr>
 
+              {/* Temp File Spill */}
+              <tr style={isWorkMem ? { background: 'rgba(236, 72, 153, 0.08)' } : undefined}>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <HardDrive size={14} color="#ec4899" />
+                    <strong>Temp File Spill</strong> {isWorkMem && <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>KEY METRIC</span>}
+                  </div>
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>
+                  {formatBytesToMB(before.temp_files_bytes ?? before.temp_bytes ?? 0)}
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: after ? 600 : 400 }}>
+                  {after ? formatBytesToMB(after.temp_files_bytes ?? after.temp_bytes ?? 0) : 'Observing...'}
+                </td>
+                <td>
+                  {tempSpillDelta !== null ? (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        color: tempSpillDelta <= -50 ? '#10b981' : tempSpillDelta > 0 ? '#f43f5e' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {tempSpillDelta > 0 ? `+${tempSpillDelta.toFixed(1)}%` : `${tempSpillDelta.toFixed(1)}%`}
+                    </span>
+                  ) : (
+                    '--'
+                  )}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Eliminate (Drop to 0 MB)
+                </td>
+              </tr>
+
               {/* CPU Utilization */}
-              <tr>
+              <tr style={!isWorkMem ? { background: 'rgba(59, 130, 246, 0.08)' } : undefined}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <Cpu size={14} color="var(--accent-blue)" />
-                    CPU Utilization
+                    CPU Utilization {!isWorkMem && <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>KEY METRIC</span>}
                   </div>
                 </td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>
@@ -300,12 +382,46 @@ export default function BeforeAfterCard({ action }) {
                 </td>
               </tr>
 
-              {/* RAM Usage */}
+              {/* Context Switches */}
               <tr>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Activity size={14} color="#f59e0b" />
+                    Context Switches
+                  </div>
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)' }}>
+                  {formatValue(before.context_switches, 0)}
+                </td>
+                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: after ? 600 : 400 }}>
+                  {after ? formatValue(after.context_switches, 0) : 'Observing...'}
+                </td>
+                <td>
+                  {ctxDelta !== null ? (
+                    <span
+                      style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: 700,
+                        color: ctxDelta <= 0 ? '#10b981' : '#f59e0b',
+                      }}
+                    >
+                      {ctxDelta > 0 ? `+${ctxDelta.toFixed(1)}%` : `${ctxDelta.toFixed(1)}%`}
+                    </span>
+                  ) : (
+                    '--'
+                  )}
+                </td>
+                <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Reduce core contention
+                </td>
+              </tr>
+
+              {/* RAM Usage */}
+              <tr style={isWorkMem ? { background: 'rgba(168, 85, 247, 0.08)' } : undefined}>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                     <Gauge size={14} color="#a855f7" />
-                    Memory Usage
+                    Memory Usage {isWorkMem && <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>SAFETY CHECK</span>}
                   </div>
                 </td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>
@@ -324,7 +440,7 @@ export default function BeforeAfterCard({ action }) {
                   )}
                 </td>
                 <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  No Spill
+                  Safe (&lt;80%)
                 </td>
               </tr>
 
@@ -368,7 +484,7 @@ export default function BeforeAfterCard({ action }) {
         </div>
       </div>
 
-      {/* Task 33: Evaluation Summary Card (College Evaluation Presentation) */}
+      {/* Task 33: Evaluation Summary Card (Dynamic for Active Scenario) */}
       {after && outcome && (
         <div
           style={{
@@ -395,7 +511,7 @@ export default function BeforeAfterCard({ action }) {
           >
             <div>
               <span style={{ color: 'var(--text-muted)' }}>Bottleneck:</span>
-              <div style={{ fontWeight: 600, color: '#f59e0b' }}>CPU_PARALLELISM</div>
+              <div style={{ fontWeight: 600, color: '#f59e0b' }}>{bottleneckName}</div>
             </div>
             <div>
               <span style={{ color: 'var(--text-muted)' }}>Tuned Parameter:</span>
@@ -415,18 +531,43 @@ export default function BeforeAfterCard({ action }) {
                 {formatValue(before.throughput_tps)} &rarr; {formatValue(after.throughput_tps)}
               </div>
             </div>
-            <div>
-              <span style={{ color: 'var(--text-muted)' }}>CPU (%):</span>
-              <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                {formatValue(before.cpu_percent)}% &rarr; {formatValue(after.cpu_percent)}%
-              </div>
-            </div>
+            {isWorkMem ? (
+              <>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Temp Spill:</span>
+                  <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', color: '#ec4899' }}>
+                    {formatBytesToMB(before.temp_files_bytes ?? before.temp_bytes ?? 0)} &rarr; {formatBytesToMB(after.temp_files_bytes ?? after.temp_bytes ?? 0)}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Memory (%):</span>
+                  <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    {formatValue(before.memory_percent)}% &rarr; {formatValue(after.memory_percent)}%
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>CPU (%):</span>
+                  <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    {formatValue(before.cpu_percent)}% &rarr; {formatValue(after.cpu_percent)}%
+                  </div>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--text-muted)' }}>Ctx Switches:</span>
+                  <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    {formatValue(before.context_switches, 0)} &rarr; {formatValue(after.context_switches, 0)}
+                  </div>
+                </div>
+              </>
+            )}
             <div>
               <span style={{ color: 'var(--text-muted)' }}>Final Verdict:</span>
               <div
                 style={{
                   fontWeight: 700,
-                  color: isKeep ? '#10b981' : '#f59e0b',
+                  color: isKeep ? '#10b981' : isInconclusive ? '#94a3b8' : '#f59e0b',
                   fontFamily: 'var(--font-mono)',
                 }}
               >
