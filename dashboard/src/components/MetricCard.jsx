@@ -11,14 +11,14 @@ export default function MetricCard({
   isWaiting = false,
 }) {
   const getBorderColor = () => {
-    if (status === 'critical') return 'rgba(244, 63, 94, 0.4)';
+    if (status === 'critical') return 'rgba(244, 97, 12, 0.45)';
     if (status === 'warning') return 'rgba(245, 158, 11, 0.4)';
     return 'var(--border-color)';
   };
 
   const getValueColor = () => {
     if (isWaiting || value === null || value === undefined) return 'var(--text-muted)';
-    if (status === 'critical') return 'var(--accent-rose)';
+    if (status === 'critical') return 'var(--accent-blue)';
     if (status === 'warning') return 'var(--accent-amber)';
     return 'var(--text-primary)';
   };
@@ -56,7 +56,7 @@ export default function MetricCard({
       <div className="metric-footer">
         <span>{subtitle || 'Telemetry Window'}</span>
         {trend && !isWaiting && (
-          <span style={{ color: trend.startsWith('+') ? '#f59e0b' : '#10b981', fontWeight: 600 }}>
+          <span style={{ color: trend.startsWith('+') ? '#f59e0b' : '#5b6675', fontWeight: 600 }}>
             {trend}
           </span>
         )}

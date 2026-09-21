@@ -22,7 +22,7 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: isWorkloadRunning ? '#10b981' : '#6b7280',
+              backgroundColor: isWorkloadRunning ? '#f4610c' : '#8a94a3',
             }}
           />
           {workloadLabel}
@@ -40,7 +40,7 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: '#3b82f6',
+              backgroundColor: '#f4610c',
             }}
           />
           {tunerStatus?.mode || 'Recommendation'} Mode
@@ -72,7 +72,7 @@ export default function TopSummary({ tunerStatus, workloadStatus }) {
         <span
           className="summary-value"
           style={{
-            color: isBottleneck ? '#f59e0b' : '#10b981',
+            color: isBottleneck ? '#f59e0b' : '#5b6675',
             fontSize: '1rem',
             fontFamily: 'var(--font-mono)',
           }}
