@@ -7,6 +7,8 @@ const formatMetric = (val, fraction = 1) => {
 };
 
 export default function TuningHistoryTable({ history = [] }) {
+  const [bottleneckFilter, setBottleneckFilter] = React.useState('ALL');
+
   if (!history || history.length === 0) {
     return (
       <div
@@ -24,6 +26,26 @@ export default function TuningHistoryTable({ history = [] }) {
     );
   }
 
+  // Quick counts
+  const totalCount = history.length;
+  const cpuCount = history.filter(
+    (h) => h.bottleneck === 'CPU_PARALLELISM' || h.parameter === 'max_parallel_workers_per_gather'
+  ).length;
+  const memCount = history.filter(
+    (h) => h.bottleneck === 'WORK_MEM_SPILL' || h.parameter === 'work_mem'
+  ).length;
+
+  const filteredHistory = history.filter((item) => {
+    if (bottleneckFilter === 'ALL') return true;
+    if (bottleneckFilter === 'CPU_PARALLELISM') {
+      return item.bottleneck === 'CPU_PARALLELISM' || item.parameter === 'max_parallel_workers_per_gather' || item.action_type === 'REDUCE_DB_PARALLELISM';
+    }
+    if (bottleneckFilter === 'WORK_MEM_SPILL') {
+      return item.bottleneck === 'WORK_MEM_SPILL' || item.parameter === 'work_mem' || item.action_type === 'INCREASE_WORK_MEM';
+    }
+    return true;
+  });
+
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'KEPT':
@@ -31,6 +53,7 @@ export default function TuningHistoryTable({ history = [] }) {
         return 'badge-green';
       case 'ROLLED_BACK':
       case 'ROLLBACK':
+      case 'INCONCLUSIVE':
         return 'badge-amber';
       case 'ROLLBACK_FAILED':
       case 'FAILED':
@@ -45,7 +68,34 @@ export default function TuningHistoryTable({ history = [] }) {
   };
 
   return (
-    <div className="data-table-container" style={{ overflowX: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+      {/* Filter Toolbar (Task 22) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Filter by Scenario:</span>
+        <button
+          className={`btn ${bottleneckFilter === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+          onClick={() => setBottleneckFilter('ALL')}
+        >
+          All Actions ({totalCount})
+        </button>
+        <button
+          className={`btn ${bottleneckFilter === 'CPU_PARALLELISM' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+          onClick={() => setBottleneckFilter('CPU_PARALLELISM')}
+        >
+          CPU / Parallelism ({cpuCount})
+        </button>
+        <button
+          className={`btn ${bottleneckFilter === 'WORK_MEM_SPILL' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
+          onClick={() => setBottleneckFilter('WORK_MEM_SPILL')}
+        >
+          Work Memory / Temp Spill ({memCount})
+        </button>
+      </div>
+
+      <div className="data-table-container" style={{ overflowX: 'auto' }}>
       <table className="data-table">
         <thead>
           <tr>
@@ -65,7 +115,7 @@ export default function TuningHistoryTable({ history = [] }) {
           </tr>
         </thead>
         <tbody>
-          {history.map((item, idx) => {
+          {filteredHistory.map((item, idx) => {
             const isKept = ['KEEP', 'KEPT'].includes(item.status);
             const isRolledBack = ['ROLLBACK', 'ROLLED_BACK'].includes(item.status);
             const isFailed = ['FAILED', 'ROLLBACK_FAILED'].includes(item.status);
@@ -170,6 +220,7 @@ export default function TuningHistoryTable({ history = [] }) {
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }

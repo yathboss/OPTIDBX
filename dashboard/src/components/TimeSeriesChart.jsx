@@ -34,6 +34,16 @@ export default function TimeSeriesChart({ historyData = [] }) {
       fillColor: 'rgba(139, 92, 246, 0.15)',
       getValue: (item) => item?.os?.memory_percent ?? 0,
     },
+    temp_spill: {
+      label: 'Temp File Spill',
+      unit: 'MB',
+      color: '#ec4899',
+      fillColor: 'rgba(236, 72, 153, 0.15)',
+      getValue: (item) => {
+        const bytes = item?.db?.temp_files_bytes ?? item?.db?.temp_bytes ?? 0;
+        return Number((Number(bytes) / (1024 * 1024)).toFixed(2));
+      },
+    },
   };
 
   const currentConfig = metricsConfig[metricKey];
@@ -107,6 +117,12 @@ export default function TimeSeriesChart({ historyData = [] }) {
             onClick={() => setMetricKey('memory')}
           >
             Memory %
+          </button>
+          <button
+            className={`chart-tab-btn ${metricKey === 'temp_spill' ? 'active' : ''}`}
+            onClick={() => setMetricKey('temp_spill')}
+          >
+            Temp Spill (MB)
           </button>
         </div>
       </div>
