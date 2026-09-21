@@ -1,59 +1,169 @@
 import React from 'react';
-import { History, Check, X, Clock } from 'lucide-react';
+import { History, Check, X, Clock, AlertTriangle, AlertOctagon } from 'lucide-react';
+
+const formatMetric = (val, fraction = 1) => {
+  if (val === null || val === undefined || !Number.isFinite(val)) return '--';
+  return Number(val).toFixed(fraction);
+};
 
 export default function TuningHistoryTable({ history = [] }) {
   if (!history || history.length === 0) {
     return (
-      <div className="data-table-container" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-        <History size={32} style={{ margin: '0 auto 0.5rem', display: 'block', opacity: 0.5 }} />
-        No tuning actions recorded yet.
+      <div
+        className="data-table-container"
+        style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}
+      >
+        <History size={36} style={{ margin: '0 auto 0.75rem', display: 'block', opacity: 0.5 }} />
+        <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          No tuning actions recorded yet
+        </div>
+        <p style={{ fontSize: '0.85rem', maxWidth: '480px', margin: '0.5rem auto 0' }}>
+          When the autotuner detects bottlenecks and recommends or applies tuning parameters, the actions and evaluation results will appear here.
+        </p>
       </div>
     );
   }
 
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'KEPT':
+      case 'KEEP':
+        return 'badge-green';
+      case 'ROLLED_BACK':
+      case 'ROLLBACK':
+        return 'badge-amber';
+      case 'ROLLBACK_FAILED':
+      case 'FAILED':
+        return 'badge-rose';
+      case 'APPLIED':
+      case 'OBSERVING':
+        return 'badge-blue';
+      case 'RECOMMENDED':
+      default:
+        return 'badge-purple';
+    }
+  };
+
   return (
-    <div className="data-table-container">
+    <div className="data-table-container" style={{ overflowX: 'auto' }}>
       <table className="data-table">
         <thead>
           <tr>
-            <th>Timestamp</th>
+            <th>Time</th>
+            <th>Exp #</th>
             <th>Bottleneck</th>
             <th>Parameter</th>
-            <th>Old Value</th>
-            <th>New Value</th>
+            <th>Old</th>
+            <th>New</th>
+            <th>Mode</th>
             <th>Status</th>
-            <th>Reason / Details</th>
+            <th>Before Lat.</th>
+            <th>After Lat.</th>
+            <th>Before TPS</th>
+            <th>After TPS</th>
+            <th>Decision</th>
           </tr>
         </thead>
         <tbody>
           {history.map((item, idx) => {
             const isKept = ['KEEP', 'KEPT'].includes(item.status);
-            const isRolledBack = ['ROLLBACK', 'ROLLED_BACK', 'ROLLBACK_FAILED'].includes(item.status);
+            const isRolledBack = ['ROLLBACK', 'ROLLED_BACK'].includes(item.status);
+            const isFailed = ['FAILED', 'ROLLBACK_FAILED'].includes(item.status);
+            const beforeLat = item.before_metrics?.query_latency_ms;
+            const afterLat = item.after_metrics?.query_latency_ms;
+            const beforeTps = item.before_metrics?.throughput_tps;
+            const afterTps = item.after_metrics?.throughput_tps;
+            const decision = item.decision || (isKept ? 'KEEP' : isRolledBack ? 'ROLLBACK' : isFailed ? 'FAILED' : '--');
 
             return (
-              <tr key={idx}>
-                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {item.timestamp ? new Date(item.timestamp).toLocaleString() : '--'}
+              <tr key={item.action_id || idx}>
+                {/* Time */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                  {item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : '--'}
                 </td>
+
+                {/* Experiment ID */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                  {item.experiment_id ? `#${item.experiment_id}` : '--'}
+                </td>
+
+                {/* Bottleneck */}
                 <td>
-                  <span className="badge badge-amber" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>
+                  <span
+                    className="badge badge-amber"
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', whiteSpace: 'nowrap' }}
+                  >
                     {item.bottleneck}
                   </span>
                 </td>
-                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#93c5fd' }}>
+
+                {/* Parameter */}
+                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#93c5fd' }}>
                   {item.parameter}
                 </td>
-                <td style={{ fontFamily: 'var(--font-mono)' }}>{String(item.old_value)}</td>
-                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{String(item.new_value)}</td>
+
+                {/* Old Value */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{String(item.old_value ?? '--')}</td>
+
+                {/* New Value */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.8rem', color: '#a78bfa' }}>
+                  {String(item.new_value ?? '--')}
+                </td>
+
+                {/* Mode */}
+                <td style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>
+                  <span style={{ color: item.mode === 'auto' ? '#a855f7' : '#38bdf8' }}>
+                    {item.mode || 'Rec.'}
+                  </span>
+                </td>
+
+                {/* Status */}
                 <td>
-                  <span className={`badge ${isKept ? 'badge-green' : isRolledBack ? 'badge-rose' : 'badge-blue'}`}>
-                    {isKept && <Check size={12} />}
-                    {isRolledBack && <X size={12} />}
+                  <span className={`badge ${getStatusBadgeClass(item.status)}`} style={{ fontSize: '0.7rem' }}>
+                    {isKept && <Check size={11} />}
+                    {isRolledBack && <Clock size={11} />}
+                    {isFailed && <AlertOctagon size={11} />}
                     {item.status}
                   </span>
                 </td>
-                <td style={{ color: 'var(--text-secondary)', fontSize: '0.825rem' }}>
-                  {item.reason}
+
+                {/* Before Latency */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                  {formatMetric(beforeLat)} ms
+                </td>
+
+                {/* After Latency */}
+                <td
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: afterLat && beforeLat && afterLat < beforeLat ? '#10b981' : 'inherit',
+                  }}
+                >
+                  {formatMetric(afterLat)} ms
+                </td>
+
+                {/* Before TPS */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
+                  {formatMetric(beforeTps)}
+                </td>
+
+                {/* After TPS */}
+                <td
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: afterTps && beforeTps && afterTps > beforeTps ? '#10b981' : 'inherit',
+                  }}
+                >
+                  {formatMetric(afterTps)}
+                </td>
+
+                {/* Decision */}
+                <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: '0.75rem' }}>
+                  <span style={{ color: isKept ? '#10b981' : isRolledBack ? '#f59e0b' : isFailed ? '#f43f5e' : 'var(--text-muted)' }}>
+                    {decision}
+                  </span>
                 </td>
               </tr>
             );
@@ -63,4 +173,3 @@ export default function TuningHistoryTable({ history = [] }) {
     </div>
   );
 }
-
