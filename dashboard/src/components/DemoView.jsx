@@ -48,14 +48,13 @@ export default function DemoView({status,workload,pending,onStart,onStop,onAppro
         <p>Current recommendation: <strong>{recommendation ? `${recommendation.old_value ?? 'Unavailable'} → ${recommendation.new_value ?? 'Unavailable'}` : 'Waiting for evidence'}</strong></p>
         <p className="muted">Only connections owned by this workload can be changed. External pgbench is monitor-only.</p>
       </section>
-      <section className="demo-card"><p className="eyebrow">3 · OS SETTINGS</p><h3>Recommended: keep unchanged</h3><p>Keep OS settings stable to interpret the database change. CPU affinity and priority are never applied automatically.</p>
-        <p>Host support: affinity {setup ? (setup.os?.affinity?'available':'unavailable'):'unknown'} · priority {setup ? (setup.os?.nice?'available':'unavailable'):'unknown'}.</p>
-        <p className="muted">{setup?.os?.allowed_pids?.length ?? 0} explicitly allowed processes. Manual OS actions use the separate guarded Python framework; this demo does not change them. cgroup writes are unsupported.</p>
+      <section className="demo-card"><p className="eyebrow">3 · OS SETTINGS</p><h3>Kept unchanged</h3>
+        <p>OS settings stay stable so the database change is easy to interpret. OptiDBX never auto-tunes the operating system.</p>
       </section>
     </div>
     <section className="demo-card recommendation-card"><p className="eyebrow">NEXT STEP</p>
       <h3>{status?.state === 'OBSERVING' ? 'Measuring the effect of the change' : recommendation ? 'Review your recommendation' : workload?.running ? 'Collecting evidence' : 'Ready when you are'}</h3>
-      <p>{recommendation?.reason || status?.reason || 'Start the demo to collect a baseline. A recommendation appears only when the measurements justify it.'}</p>
+      <p>{recommendation?.reason || (workload?.running ? status?.reason : 'Press "Start demo" above to begin. A recommendation appears only when the measurements justify it.')}</p>
       {recommendation && <div className="recommendation-evidence"><p><strong>Expected effect:</strong> fewer competing PostgreSQL workers may reduce CPU contention. The observation decides whether to keep the change.</p>
         <p><strong>Affected scope:</strong> {status?.capabilities?.sessions?.length ?? 'Bound'} owned workload sessions only.</p>
         <dl>{Object.entries(status?.evidence || {}).map(([key,value])=><div key={key}><dt>{key.replaceAll('_',' ')}</dt><dd>{Number.isFinite(value)?value.toLocaleString(undefined,{maximumFractionDigits:2}):'Unavailable'}</dd></div>)}</dl></div>}
@@ -65,7 +64,7 @@ export default function DemoView({status,workload,pending,onStart,onStop,onAppro
       <div className="control-group"><button className="btn btn-primary" disabled={!safe.canApply} onClick={()=>onApprove(safe.approveId)}>Apply & Observe</button>
         <button className="btn btn-secondary" disabled={!safe.canRollback} onClick={()=>onRollback(safe.rollbackId)}>Restore previous setting</button>
         <button className="btn btn-secondary" disabled={!safe.canAuto} onClick={()=>onMode(status?.mode==='auto'?'recommendation':'auto')}>{status?.mode==='auto'?'Return to manual approval':'Enable continuous auto-tuning'}</button></div>
-      <p className="muted">Apply & Observe approves one change. Continuous auto-tuning may apply later recommendations after cooldown. Changes are kept only when the safety checks support them.</p>
+      <p className="muted">Apply &amp; Observe approves one change &mdash; kept only if the measurements support it.</p>
     </section>
     {action && <section className="demo-card"><BeforeAfterCard action={action} runMeta={action.experiment_id === workload?.experiment_id ? workload : {}}/>
       <p>Lifecycle: {[...new Set(action.transitions || [])].map(t=>typeof t==='string'?t:(t.state || '')).filter(Boolean).join(' → ') || status?.state}</p>
