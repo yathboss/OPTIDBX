@@ -74,6 +74,8 @@ def test_api_approval_unknown_id_and_unbound_auto(tmp_path, sample):
         assert client.get("/tuner/live-status").json()["active_action"]
         assert client.post(f"/tuner/actions/{aid}/rollback").status_code == 200
         run.lifecycle.wait_idle()
+        # Verify rollback-last handles state gracefully
+        assert client.post("/tuner/rollback-last").status_code in (200, 409)
     finally:
         app.dependency_overrides.clear()
         run.stop()

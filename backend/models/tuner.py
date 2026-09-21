@@ -50,6 +50,8 @@ class TunerModeRequest(BaseModel):
 
 class TuningActionItem(BaseModel):
     action_id: str | None = None
+    experiment_id: str | int | None = None
+    mode: str | None = None
     before_metrics: dict | None = None
     after_metrics: dict | None = None
     timestamp: str = Field(..., description="ISO 8601 timestamp of the tuning action")
@@ -58,4 +60,5 @@ class TuningActionItem(BaseModel):
     old_value: Any = Field(..., description="Previous parameter value")
     new_value: Any = Field(..., description="Updated parameter value")
     status: str = Field(..., description="Outcome status: KEPT, ROLLED_BACK, RECOMMENDED, PENDING")
+    decision: str | None = Field(default=None, description="Tuning decision: KEEP, ROLLBACK, or None")
     reason: str = Field(..., description="Rationale for tuning action")

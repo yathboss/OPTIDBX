@@ -85,6 +85,16 @@ class TestOptiDBXBackend(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["mode"], "recommendation")
 
+    def test_apply_recommended_endpoint_no_recommendation(self):
+        # When no recommendation is active, returns 400
+        response = self.client.post("/tuner/apply-recommended")
+        self.assertIn(response.status_code, (400, 409))
+
+    def test_rollback_last_endpoint_no_action(self):
+        # When no action has been applied, returns 400 or 409
+        response = self.client.post("/tuner/rollback-last")
+        self.assertIn(response.status_code, (400, 409))
+
     def test_tuning_history(self):
         # Both /tuning/history and /tuner/history should work
         for path in ["/tuning/history", "/tuner/history"]:
