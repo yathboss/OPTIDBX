@@ -27,5 +27,5 @@ class WorkloadStatusResponse(BaseModel):
 
 
 class WorkloadStartRequest(BaseModel):
-    profile: Literal["LOW", "MEDIUM", "HIGH"] = "LOW"
+    profile: Literal["LOW", "MEDIUM", "HIGH", "ANALYTICAL", "TEMP_SPILL"] = "LOW"
     duration_seconds: int = Field(default=180, strict=True, ge=30, le=600)

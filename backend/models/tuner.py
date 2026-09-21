@@ -42,6 +42,12 @@ class TunerStatusResponse(BaseModel):
     cooldown_remaining_seconds: int = Field(
         default=0, description="Seconds remaining in cooldown period (30s)"
     )
+    memory_safety: dict = Field(
+        default_factory=dict, description="Memory headroom and pressure safety indicators"
+    )
+    deferred_bottlenecks: list[str] = Field(
+        default_factory=list, description="Deferred bottleneck candidates due to single-action policy"
+    )
 
 
 class TunerModeRequest(BaseModel):

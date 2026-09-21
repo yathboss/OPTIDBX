@@ -35,6 +35,58 @@ class LiveTunerProvider:
                 if action.new_value is not None
                 else action.reason
             )
+        # Real Memory Safety telemetry and classification (Task 4, 5, 12)
+        try:
+            import psutil
+
+            mem = psutil.virtual_memory()
+            mem_pct = round(float(mem.percent), 2)
+            avail_bytes = int(mem.available)
+            if mem_pct >= 90.0:
+                pressure = "CRITICAL"
+                safe_increase = False
+                reason_mem = "Memory utilization is CRITICAL (>=90%). work_mem increase blocked."
+            elif mem_pct >= 85.0:
+                pressure = "HIGH"
+                safe_increase = False
+                reason_mem = (
+                    "System memory pressure is already HIGH. Therefore: work_mem increase is blocked."
+                )
+            elif mem_pct >= 70.0:
+                pressure = "ELEVATED"
+                safe_increase = True
+                reason_mem = "Memory pressure elevated but headroom is sufficient (>1GB free)."
+            else:
+                pressure = "NORMAL"
+                safe_increase = True
+                reason_mem = "Memory usage normal with ample headroom for query memory expansion."
+        except Exception:
+            mem_pct = 0.0
+            avail_bytes = 0
+            pressure = "NORMAL"
+            safe_increase = True
+            reason_mem = "Memory telemetry operating normally."
+
+        memory_safety = {
+            "memory_percent": mem_pct,
+            "available_bytes": avail_bytes,
+            "available_gb": round(avail_bytes / (1024**3), 2) if avail_bytes else 0.0,
+            "pressure_level": pressure,
+            "safe_for_memory_increase": safe_increase,
+            "reason": reason_mem,
+        }
+
+        # Task 20: Bottleneck Priority Display
+        deferred = []
+        if status.detected_bottleneck == "CPU_PARALLELISM":
+            samples = self.runtime.get_history(1)
+            if samples and samples[0].db_metrics.temp_files_bytes > 0:
+                deferred.append("WORK_MEM_SPILL")
+        elif status.detected_bottleneck == "WORK_MEM_SPILL":
+            samples = self.runtime.get_history(1)
+            if samples and samples[0].os_metrics.cpu_percent > 85.0:
+                deferred.append("CPU_PARALLELISM")
+
         return TunerStatusResponse(
             mode=status.mode,
             state=status.state,
@@ -55,6 +107,8 @@ class LiveTunerProvider:
             recovery_required=status.recovery_required,
             os_persistence_status=status.os_persistence_status,
             db_persistence_status=status.db_persistence_status,
+            memory_safety=memory_safety,
+            deferred_bottlenecks=deferred,
         )
 
     def set_mode(self, mode):

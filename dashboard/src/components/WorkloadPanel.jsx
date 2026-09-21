@@ -16,6 +16,9 @@ export default function WorkloadPanel({ workloadStatus, pending, onStart, onStop
 
   const getProfileBadgeClass = (p) => {
     switch (p?.toUpperCase()) {
+      case 'ANALYTICAL':
+      case 'TEMP_SPILL':
+        return 'badge-purple';
       case 'HIGH':
         return 'badge-rose';
       case 'MEDIUM':
@@ -50,16 +53,17 @@ export default function WorkloadPanel({ workloadStatus, pending, onStart, onStop
       <div className="control-group" style={{marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'}}>
         <label style={{display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem'}}>Profile <select aria-label="Workload profile" value={isRunning ? profile : selectedProfile} disabled={locked || isRunning}
           onChange={e => setSelectedProfile(e.target.value)}>
-          {['LOW', 'MEDIUM', 'HIGH'].map(p => <option key={p}>{p}</option>)}
+          {['LOW', 'MEDIUM', 'HIGH', 'ANALYTICAL', 'TEMP_SPILL'].map(p => <option key={p}>{p}</option>)}
         </select></label>
         <label style={{display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem'}}>Duration (s) <input aria-label="Duration (seconds)" type="number" min="30" max="600" style={{width: 80}}
           value={isRunning ? workloadStatus?.duration_seconds ?? duration : duration} disabled={locked || isRunning} onChange={e => setDuration(Number(e.target.value))}/></label>
         <button className="btn btn-primary" disabled={locked || isRunning || !canStart || !Number.isInteger(duration) || duration < 30 || duration > 600}
           onClick={() => onStart(selectedProfile, duration)}>Start Workload</button>
-        <div style={{display: 'inline-flex', gap: '0.35rem', marginLeft: '0.5rem'}}>
+        <div style={{display: 'inline-flex', gap: '0.35rem', marginLeft: '0.5rem', flexWrap: 'wrap'}}>
           <button className="btn btn-secondary btn-sm" disabled={locked || isRunning || !canStart} onClick={() => onStart('LOW', 300)}>Quick LOW</button>
           <button className="btn btn-secondary btn-sm" disabled={locked || isRunning || !canStart} onClick={() => onStart('MEDIUM', 300)}>Quick MEDIUM</button>
-          <button className="btn btn-secondary btn-sm" disabled={locked || isRunning || !canStart} onClick={() => onStart('HIGH', 300)}>Quick HIGH</button>
+          <button className="btn btn-secondary btn-sm" disabled={locked || isRunning || !canStart} onClick={() => onStart('HIGH', 300)}>Quick HIGH (CPU)</button>
+          <button className="btn btn-secondary btn-sm" style={{borderColor: '#8b5cf6', color: '#c4b5fd'}} disabled={locked || isRunning || !canStart} onClick={() => onStart('ANALYTICAL', 300)}>Quick ANALYTICAL (Spill)</button>
         </div>
         <button className="btn btn-danger" disabled={locked || !isRunning} onClick={onStop}>Stop Workload</button>
         <span style={{fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: 'auto'}}>{workloadStatus?.completed_queries ?? 0} completed queries</span>
