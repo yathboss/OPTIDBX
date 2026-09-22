@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {FlaskConical, Download, ShieldCheck} from 'lucide-react';
 import {useNotice, useNotify} from './Notifications';
 import {api} from '../services/api';
+import ComparisonCharts from './ComparisonCharts';
 
 const names = {NOT_EVALUATED:'Not evaluated', INCONCLUSIVE:'Inconclusive',
   IMPROVEMENT_SUPPORTED:'Improvement supported', REGRESSION_OBSERVED:'Regression observed'};
@@ -103,6 +104,7 @@ export default function PerformanceEvidence() {
       </div>}
     </div>
     {current && <>
+      <ComparisonCharts current={current} />
       <div className="control-group evidence-exports">
         <a className="btn btn-secondary" href={api.benchmarkExport(current.id)}><Download size={14}/>Download JSON</a>
         <a className="btn btn-secondary" href={api.benchmarkExport(current.id, 'csv')}><Download size={14}/>Download CSV</a>
