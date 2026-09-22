@@ -151,6 +151,51 @@ def test_cooldown_requires_three_new_confirming_samples(tmp_path, sample):
     run.stop()
 
 
+def test_auto_skips_reduction_remembered_as_ineffective(tmp_path, sample):
+    from autotuner.rejection_memory import condition_signature
+
+    run, db, os_source, db_source, clock = make_runtime(tmp_path, sample)
+    run.rejection_memory.record(
+        (8, 6),
+        condition_signature(8, 94),
+        "Degraded or insufficient improvement across observation metrics",
+        at(sample, 0),
+    )
+    run.set_mode("auto")
+    for i in range(3):
+        tick(run, os_source, db_source, clock, sample, i)
+    run.lifecycle.wait_idle()
+    assert db.writes == []  # Suppressed: the reduction is not applied again.
+    status = run.get_status()
+    assert status.recommended_action is None
+    assert "Skipped reducing 8->6" in status.reason
+    run.stop()
+
+
+def test_performance_rollback_is_remembered(tmp_path, sample):
+    run, db, os_source, db_source, clock = make_runtime(tmp_path, sample)
+    seconds = [0]
+    run.lifecycle.clock = lambda: seconds[0]
+    run.set_mode("auto")
+    for i in range(3):
+        seconds[0] = i * 5
+        tick(run, os_source, db_source, clock, sample, i)
+    run.lifecycle.wait_idle()
+    assert db.writes == [6]  # Applied 8 -> 6.
+    # Observation with much worse latency forces a performance ROLLBACK.
+    for i in range(3, 9):
+        seconds[0] = i * 5
+        tick(run, os_source, db_source, clock, sample, i, query_latency_ms=500)
+        run.lifecycle.wait_idle()
+    assert db.writes == [6, 8]  # Restored to 8.
+    # One more sample lets the runtime observe the completed rollback and record it.
+    seconds[0] = 45
+    tick(run, os_source, db_source, clock, sample, 9)
+    run.lifecycle.wait_idle()
+    assert any(key.startswith("8->6@") for key in run.rejection_memory.snapshot())
+    run.stop()
+
+
 def test_concurrent_manual_requests_apply_once(tmp_path, sample):
     from concurrent.futures import ThreadPoolExecutor
 

@@ -12,10 +12,24 @@ tuning:
   one_action_at_a_time: true
   baseline_samples: 3
   minimum_observation_samples: 5
+  # Client-observed owned-workload queries required per window to trust a KEEP decision.
+  minimum_owned_queries: 30
+  baseline_warmup_seconds: 15
   improvement_percent: 5
   degradation_percent: 10
   resource_degradation_percent: 20
   disk_noise_floor_bytes: 1048576
+  # KEEP decision policy for owned-workload evaluations:
+  #   net_benefit      - keep if weighted throughput gain outweighs latency cost
+  #   latency_first    - keep only if per-query latency does not regress
+  #   throughput_first - keep if throughput improves and errors do not rise
+  keep_policy: net_benefit
+  throughput_weight: 1.0
+  latency_weight: 0.5
+  # The global degradation_percent remains an independent hard limit.
+  max_latency_regression_percent: 10
+  # Do not retry a rolled-back reduction under comparable conditions for this long.
+  rejection_memory_ttl_seconds: 1800
 
 # Manual OS actions require explicit process and CPU whitelists.
 os_actions:

@@ -40,7 +40,7 @@ export default function TuningHistoryTable({ history = [] }) {
                     {item.bottleneck}
                   </span>
                 </td>
-                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: '#93c5fd' }}>
+                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-blue)' }}>
                   {item.parameter}
                 </td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>{String(item.old_value)}</td>

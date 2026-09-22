@@ -16,13 +16,14 @@ export function actionState(status = {}, pending = false) {
 
 export function comparison(action) {
   if (!action?.before || !action?.after) return null;
-  const metric = key => {
-    const before = action.before[key], after = action.after[key];
+  const owned = action.evaluation_source === 'OWNED_WORKLOAD';
+  const metric = (key, useOwned = false) => {
+    const before = (useOwned ? action.before_owned : action.before)?.[key], after = (useOwned ? action.after_owned : action.after)?.[key];
     return {before, after, delta: Number.isFinite(before) && Number.isFinite(after) && before !== 0
       ? (after - before) / before * 100 : null};
   };
-  return {outcome: action.outcome, latency: metric('query_latency_ms'),
-    throughput: metric('throughput_tps'), cpu: metric('cpu_percent'),
+  return {outcome: action.outcome, owned, latency: metric(owned ? 'p95_latency_ms' : 'query_latency_ms', owned),
+    throughput: metric(owned ? 'qps' : 'throughput_tps', owned), cpu: metric('cpu_percent'),
     memory: metric('memory_percent'), diskRead: metric('disk_read_bytes'),
     diskWrite: metric('disk_write_bytes')};
 }

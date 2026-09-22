@@ -6,7 +6,9 @@ test('real browser reads comparison conflict then starts a manual workload after
   let id;
   try {
     await page.goto('/');
-    await page.getByRole('button', {name:'Performance Evidence', exact:true}).click();
+  await page.getByText('Advanced controls & live status', {exact:true}).click();
+    await page.getByRole('button', {name: 'Results & Reports', exact:true}).click();
+  await page.getByText('Performance Evidence: paired comparisons', {exact:true}).click();
     const created = page.waitForResponse(response => response.url().endsWith('/benchmarks/start'));
     await page.getByRole('button', {name:'Start comparison', exact:true}).click();
     const response = await created;

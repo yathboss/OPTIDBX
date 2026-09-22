@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from autotuner.engine import AutotunerEngine
 from autotuner.lifecycle import ActionLifecycle
 from autotuner.models import DBMetrics, OSMetrics
+from autotuner.rejection_memory import RejectedReductionMemory, condition_signature
 from autotuner.telemetry_coordinator import TelemetryCoordinator
 from config.config_loader import load_config
 
@@ -34,7 +35,12 @@ class AutotunerRuntime:
         db_store=None,
     ):
         self.config = config or load_config()
-        self.engine = AutotunerEngine(self.config)
+        self.rejection_memory = RejectedReductionMemory(
+            self.config.tuning.rejection_memory_ttl_seconds
+        )
+        self._action_signatures = {}
+        self._recorded_rollbacks = set()
+        self.engine = AutotunerEngine(self.config, rejection_memory=self.rejection_memory)
         self.coordinator = TelemetryCoordinator(self.config)
         self.os_collector = os_collector
         self.db_collector = db_collector
@@ -135,6 +141,7 @@ class AutotunerRuntime:
                     return None
                 prior_state = self._last_sample_lifecycle_state
                 self.lifecycle.advance(telemetry, now=self.clock())
+                self._remember_rejection()
                 if prior_state != "MONITORING":
                     # Confirmation must start again after cooldown; no stacked evidence.
                     self.engine.invalidate("Action lifecycle in progress")
@@ -178,8 +185,18 @@ class AutotunerRuntime:
                     and self.lifecycle.status()["state"] == "MONITORING"
                 ):
                     try:
+                        # The detector keeps a stable recommendation ID while readings
+                        # stay bad; revalidate it against the newest interval, not its
+                        # original creation time (matches manual approval).
+                        fresh = action.model_copy(
+                            update={"timestamp": self._history[-1].timestamp}
+                        )
                         self.lifecycle.approve(
-                            action, list(self._history), now=self.clock(), automatic=True
+                            fresh, list(self._history), now=self.clock(), automatic=True
+                        )
+                        self._action_signatures[str(fresh.action_id)] = condition_signature(
+                            telemetry.db_metrics.active_workers,
+                            telemetry.os_metrics.cpu_percent,
                         )
                         self._action_error = None
                     except ValueError as exc:
@@ -259,7 +276,31 @@ class AutotunerRuntime:
             # Revalidate against the newest interval, not its original creation time.
             action = action.model_copy(update={"timestamp": self._history[-1].timestamp})
             self.lifecycle.approve(action, list(self._history), now=self.clock())
+            self._action_signatures[str(action.action_id)] = condition_signature(
+                self._history[-1].db_metrics.active_workers,
+                self._history[-1].os_metrics.cpu_percent,
+            )
         return self.get_status()
+
+    def _remember_rejection(self):
+        """Record a reduction that was rolled back for performance, for its conditions."""
+        active = self.lifecycle.status()["active_action"]
+        if not active or active.get("outcome") != "ROLLBACK":
+            return
+        action = active.get("action") or {}
+        action_id = action.get("action_id")
+        reason = active.get("reason") or ""
+        # Only genuine performance rejections; not stops, failures or insufficient evidence.
+        if action_id in self._recorded_rollbacks or not reason.startswith(
+            "Degraded or insufficient improvement"
+        ):
+            return
+        signature = self._action_signatures.get(action_id)
+        if signature is not None and action.get("old_value") is not None:
+            self.rejection_memory.record(
+                (action["old_value"], action["new_value"]), signature, reason, self.clock()
+            )
+        self._recorded_rollbacks.add(action_id)
 
     def bind_workload(self, executor, experiment_id):
         """Only the stopped local owner can bind; recovery cannot be bypassed."""
@@ -274,7 +315,7 @@ class AutotunerRuntime:
             self.experiment_id = self.lifecycle.experiment_id = experiment_id
             self.mode = "recommendation"
             self._history.clear()
-            self.engine = AutotunerEngine(self.config)
+            self.engine = AutotunerEngine(self.config, rejection_memory=self.rejection_memory)
 
     def rollback(self, action_id):
         self.lifecycle.rollback(action_id)
@@ -343,7 +384,7 @@ class AutotunerRuntime:
             self._stop.clear()
             self._primed = False
             self.coordinator = TelemetryCoordinator(self.config)
-            self.engine = AutotunerEngine(self.config)
+            self.engine = AutotunerEngine(self.config, rejection_memory=self.rejection_memory)
             self._thread = threading.Thread(target=self._background, name="OptiDBX", daemon=True)
             self._thread.start()
 

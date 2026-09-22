@@ -29,10 +29,24 @@ class TuningConfig(ConfigSection):
     one_action_at_a_time: Literal[True]
     baseline_samples: Annotated[int, Field(strict=True, ge=3)] = 3
     minimum_observation_samples: Annotated[int, Field(strict=True, ge=3)] = 5
+    # Minimum owned-workload queries per baseline/observation window before a
+    # client-observed KEEP/ROLLBACK decision is trusted; too few is insufficient evidence.
+    minimum_owned_queries: Annotated[int, Field(strict=True, ge=1)] = 30
+    baseline_warmup_seconds: PositiveNumber = 15
     improvement_percent: PositiveNumber = 5
     degradation_percent: PositiveNumber = 10
     resource_degradation_percent: PositiveNumber = 20
     disk_noise_floor_bytes: PositiveNumber = 1048576
+    # KEEP policy for owned-workload evaluations. net_benefit keeps when the weighted
+    # throughput gain outweighs the latency cost; latency_first/throughput_first favor
+    # one axis. A latency blowout past max_latency_regression_percent is never kept.
+    keep_policy: Literal["net_benefit", "latency_first", "throughput_first"] = "net_benefit"
+    throughput_weight: PositiveNumber = 1.0
+    latency_weight: Annotated[float, Field(strict=True, ge=0)] = 0.5
+    max_latency_regression_percent: PositiveNumber = 10
+    # A reduction rolled back for performance is not retried under comparable
+    # conditions until this many seconds pass (then it is reconsidered).
+    rejection_memory_ttl_seconds: PositiveNumber = 1800
 
 
 class ModesConfig(ConfigSection):
