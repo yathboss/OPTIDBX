@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
+import AmbientBackground from './components/AmbientBackground';
+import Welcome from './components/Welcome';
 import HomeView from './components/HomeView';
 import LiveSessionView from './components/LiveSessionView';
 import LiveMetricsModal from './components/LiveMetricsModal';
@@ -21,6 +23,13 @@ export default function App() {
   const mainRef = useRef(null);
   const navigate = (page, id) => {window.location.hash = routeHref(page, id);};
   const [metricsOpen, setMetricsOpen] = useState(false);
+  const [entered, setEntered] = useState(() => {
+    try { return sessionStorage.getItem('optidbx_entered') === '1'; } catch { return false; }
+  });
+  const enterApp = useCallback(() => {
+    try { sessionStorage.setItem('optidbx_entered', '1'); } catch { /* ignore */ }
+    setEntered(true);
+  }, []);
 
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
@@ -128,6 +137,7 @@ export default function App() {
 
   return (
     <div className="app-container">
+      <AmbientBackground />
       <Header
         activeTab={activeTab}
         isLive={isLive}
@@ -201,6 +211,8 @@ export default function App() {
         <div><strong>OptiDBX</strong> — safe PostgreSQL auto-tuning</div>
         <div>Mode: {tunerStatus?.mode || 'Unavailable'} · Telemetry every 5s</div>
       </footer>
+
+      {!entered && <Welcome onEnter={enterApp} />}
     </div>
   );
 }

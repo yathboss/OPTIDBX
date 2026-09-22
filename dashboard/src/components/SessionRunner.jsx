@@ -5,6 +5,7 @@ import {
   FileDown, Gauge as GaugeIcon, Square,
 } from 'lucide-react';
 import { PIPELINE, VERDICTS } from '../scenarios.mjs';
+import { SessionAlgorithm } from './AlgorithmView';
 
 const VERDICT_ICON = {
   KEEP: CheckCircle2, ROLLBACK: XCircle, NO_ACTION: MinusCircle,
@@ -337,6 +338,17 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
               tone={(telemetry?.memory_percent ?? 0) > 85 ? 'warning' : 'accent'} />
           </div>
         </section>
+
+        {(isLive || phase !== 'setup') && (
+          <SessionAlgorithm
+            isLive={isLive}
+            phase={phase}
+            activeStage={activeStage}
+            stageIndex={stageIndex}
+            session={session}
+            live={live}
+          />
+        )}
       </div>
 
       {phase === 'setup' && !isLive && (

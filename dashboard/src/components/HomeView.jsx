@@ -49,10 +49,6 @@ export default function HomeView({ onExploreScenarios, onStartLive }) {
       <section className="home-section systems-explainer" aria-labelledby="systems-title">
         <p className="section-eyebrow">OS + DBMS + performance</p>
         <h2 className="section-heading" id="systems-title">Understand the signals behind each decision</h2>
-        <figure className="systems-illustration">
-          <img src="/images/optidbx-systems-concept.png" width="1672" height="941" decoding="async" alt="Concept illustration connecting CPU, RAM and disk I/O to PostgreSQL, with illustrative throughput and latency curves." />
-          <figcaption>Concept illustration, not live measurements. Real outcomes depend on the workload and are recorded in session reports.</figcaption>
-        </figure>
         <dl className="systems-terms">
           <div><dt>OS resources</dt><dd>CPU, memory, and disk activity describe pressure on the host.</dd></div>
           <div><dt>DBMS</dt><dd>PostgreSQL executes the queries and manages database workers.</dd></div>

@@ -2,7 +2,13 @@ import React from 'react';
 import { Lock } from 'lucide-react';
 import {PAGES, routeHref} from '../navigation.mjs';
 
-const TABS = Object.entries(PAGES).map(([key, page]) => [key, page.label]);
+// The algorithm visualization now lives inline inside a running session/scenario,
+// so it is no longer a top-level tab. The `#/algorithm` route stays reachable as a
+// secondary entry point, just off the main navigation.
+const HIDDEN_TABS = new Set(['algorithm']);
+const TABS = Object.entries(PAGES)
+  .filter(([key]) => !HIDDEN_TABS.has(key))
+  .map(([key, page]) => [key, page.label]);
 
 export default function Header({ activeTab, isLive, isWaiting, telemetryAvailable, locked }) {
   const connection = !isLive
