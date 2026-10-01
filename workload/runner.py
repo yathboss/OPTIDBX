@@ -1,17 +1,17 @@
 """Bound, time-limited analytical workloads for the local safe V1 demo."""
 
 import logging
+import random
 import threading
 import time
 from datetime import UTC, datetime
-from pathlib import Path
 
 from actions.db_actions.parallelism import BoundWorkloadSession
+from workload import queries
 from workload.managed import BoundWorkloadGroup
 from workload.measurements import QueryMeasurements
 
 logger = logging.getLogger(__name__)
-QUERY = (Path(__file__).resolve().parents[1] / "experiments/phase2_analytical.sql").read_text()
 
 
 class ManagedWorkload:
@@ -24,6 +24,10 @@ class ManagedWorkload:
         self.group = None
         self.running = False
         self.profile = None
+        self.workload_type = None
+        self.initial_parallelism = None
+        self.initial_work_mem_mb = None
+        self.max_aid = None
         self.experiment_id = None
         self.started_at = None
         self.error = None
@@ -40,10 +44,12 @@ class ManagedWorkload:
             benchmark_id=self.reservation,
             running=self.running,
             profile=self.profile,
+            workload_type=self.workload_type,
+            initial_parallelism=self.initial_parallelism,
+            initial_work_mem_mb=self.initial_work_mem_mb,
             experiment_id=self.experiment_id,
             started_at=self.started_at,
-            details=self.error
-            or "Owned read-only analytical sessions; external pgbench is not controlled",
+            details=self.error or "Owned workload sessions; external pgbench is not controlled",
             error=self.error,
             clients=len(self.connections),
             completed_queries=completed,
@@ -53,7 +59,15 @@ class ManagedWorkload:
         )
 
     def start(
-        self, profile, duration_seconds, *, owner=None, initial_parallelism=None, warmup_seconds=0
+        self,
+        profile,
+        duration_seconds,
+        *,
+        owner=None,
+        workload_type="ANALYTICAL",
+        initial_parallelism=None,
+        initial_work_mem_mb=None,
+        warmup_seconds=0,
     ):
         from db_monitor.storage import end_experiment, get_connection, start_experiment
 
@@ -66,6 +80,13 @@ class ManagedWorkload:
                 not in self.runtime.config.safe_values.max_parallel_workers_per_gather
             ):
                 raise ValueError("Initial parallelism is outside the configured whitelist")
+            if initial_work_mem_mb is not None and (
+                type(initial_work_mem_mb) is not int
+                or initial_work_mem_mb not in self.runtime.config.safe_values.work_mem_mb
+            ):
+                raise ValueError("Initial work_mem is outside the configured whitelist")
+            if workload_type not in queries.WORKLOAD_TYPES:
+                raise ValueError("Choose a workload type: " + ", ".join(queries.WORKLOAD_TYPES))
             if (
                 profile not in ("LOW", "MEDIUM", "HIGH")
                 or type(duration_seconds) is not int
@@ -80,6 +101,10 @@ class ManagedWorkload:
             self.runtime.flush_telemetry()
             self.error = None
             self.profile, self.duration = profile, duration_seconds
+            self.workload_type = workload_type
+            self.initial_parallelism = initial_parallelism
+            self.initial_work_mem_mb = initial_work_mem_mb
+            self.max_aid = None
             self.experiment_id = None
             self.completed_queries = 0
             try:
@@ -96,6 +121,11 @@ class ManagedWorkload:
                             raise ValueError(
                                 "Initialize pgbench_accounts in the dedicated demo database first"
                             )
+                        if self.max_aid is None:
+                            cur.execute("SELECT max(aid) FROM pgbench_accounts")
+                            self.max_aid = cur.fetchone()[0]
+                            if not self.max_aid:
+                                raise ValueError("pgbench_accounts is empty; initialize it first")
                         cur.execute(
                             "SELECT set_config('application_name', %s, false)",
                             (f"optidbx-owned-{index}",),
@@ -105,8 +135,21 @@ class ManagedWorkload:
                                 "SELECT set_config('max_parallel_workers_per_gather', %s, false)",
                                 (str(initial_parallelism),),
                             )
+                        if initial_work_mem_mb is not None:
+                            cur.execute(
+                                "SELECT set_config('work_mem', %s, false)",
+                                (f"{initial_work_mem_mb}MB",),
+                            )
+                            cur.execute(
+                                "SELECT pg_size_bytes(current_setting('work_mem')) "
+                                "= pg_size_bytes(%s)",
+                                (f"{initial_work_mem_mb}MB",),
+                            )
+                            if not cur.fetchone()[0]:
+                                raise ValueError("Initial work_mem verification failed")
                 self.experiment_id = start_experiment(
-                    profile, f"Managed analytical workload ({count} owned sessions)"
+                    profile,
+                    f"Managed {workload_type.lower()} workload ({count} owned sessions)",
                 )
                 sessions = [
                     BoundWorkloadSession(
@@ -156,11 +199,13 @@ class ManagedWorkload:
             return self.status()
 
     def _worker(self, index):
+        rng = random.Random(f"{self.experiment_id}-{index}")
         try:
             while not self.stop_event.is_set():
+                query = queries.next_query(self.workload_type, self.max_aid, rng)
                 started = time.monotonic()
                 try:
-                    self.group.execute(index, QUERY)
+                    self.group.execute(index, query)
                 except Exception as exc:
                     self.measurements.record(
                         started,

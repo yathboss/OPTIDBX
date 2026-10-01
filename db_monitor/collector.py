@@ -56,6 +56,14 @@ class DBMetricsCollector:
         self._last_time: float | None = None
         self._has_pg_stat_statements: bool | None = None
         self._baseline = None
+        # Provenance of the most recent successful interval. These are the real,
+        # verifiable inputs the published metrics were derived from (how many
+        # completed statements the latency was averaged over, and the exact
+        # interval length). Surfaced read-only by the API for the "where this
+        # number comes from" view; not part of the strict telemetry contract.
+        self.last_sample_calls: int | None = None
+        self.last_interval_seconds: float | None = None
+        self.last_collected_at: str | None = None
 
     def _get_connection(self):
         if self.conn_params:
@@ -156,8 +164,14 @@ class DBMetricsCollector:
             duration += delta_time
         if calls == 0:
             raise TelemetryNotReady("no completed statements; latency is unavailable")
+        collected_at = datetime.now(UTC).isoformat()
+        # Record the real derivation inputs for this interval before returning the
+        # contract-shaped sample (which must not carry extra keys).
+        self.last_sample_calls = int(calls)
+        self.last_interval_seconds = round(elapsed, 3)
+        self.last_collected_at = collected_at
         return {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": collected_at,
             "query_latency_ms": round(duration / calls, 3),
             "throughput_tps": round(xacts / elapsed, 2),
             "temp_files_bytes": int(temp),

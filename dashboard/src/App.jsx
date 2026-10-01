@@ -169,14 +169,20 @@ export default function App() {
         {livePage && (
           <div className="studio">
             <LiveSessionView
-              metrics={metrics} tunerStatus={tunerStatus} workloadStatus={workloadStatus}
+              metrics={metrics} history={history} tunerStatus={tunerStatus} workloadStatus={workloadStatus}
               pending={pending} locked={comparisonActive}
               onOpenMetrics={() => setMetricsOpen(true)}
               onComplete={handleComplete}
-              onStart={(profile, duration) => mutate(async () => {
+              onStart={(options) => mutate(async () => {
                 const mode = await api.setTunerMode('recommendation');
                 if (mode.status !== 200) return mode;
-                return api.startWorkload(profile, duration);
+                return api.startWorkload({
+                  profile: options.profile,
+                  duration_seconds: options.duration,
+                  workload_type: options.workloadType,
+                  initial_parallelism: options.initialParallelism,
+                  initial_work_mem_mb: options.initialWorkMemMb,
+                });
               }, 'Live session started.')}
               onStop={() => mutate(api.stopWorkload, 'Session stopped.')}
             />

@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.config_loader import load_config
 from db_monitor.storage import get_connection
 from workload.measurements import QueryMeasurements
-from workload.runner import QUERY
+from workload.queries import ANALYTICAL as QUERY
 
 
 def connect():

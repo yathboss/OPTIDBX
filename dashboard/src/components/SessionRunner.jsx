@@ -2,10 +2,36 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Play, RotateCcw, Cpu, Users, Timer, Activity, MemoryStick,
   CheckCircle2, XCircle, MinusCircle, ShieldAlert, Info, Download, Radio,
-  FileDown, Gauge as GaugeIcon, Square,
+  FileDown, Gauge as GaugeIcon, Square, Database, HardDrive, ClipboardList,
+  Hourglass, X, FlaskConical,
 } from 'lucide-react';
 import { PIPELINE, VERDICTS } from '../scenarios.mjs';
 import { SessionAlgorithm } from './AlgorithmView';
+import TimeSeriesChart from './TimeSeriesChart';
+
+/** Smoothly count a server-provided "seconds remaining" down between 5s polls.
+ *  Re-anchors whenever the server value changes, so it stays truthful. */
+function useSmoothCountdown(serverSeconds) {
+  const [display, setDisplay] = useState(serverSeconds || 0);
+  const anchor = useRef({ base: serverSeconds || 0, at: Date.now() });
+  useEffect(() => {
+    anchor.current = { base: serverSeconds || 0, at: Date.now() };
+    setDisplay(serverSeconds || 0);
+  }, [serverSeconds]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - anchor.current.at) / 1000;
+      setDisplay(Math.max(0, anchor.current.base - elapsed));
+    }, 250);
+    return () => clearInterval(id);
+  }, []);
+  return display;
+}
+
+const fmtClock = (s) => {
+  const t = Math.max(0, Math.round(s));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
 
 const VERDICT_ICON = {
   KEEP: CheckCircle2, ROLLBACK: XCircle, NO_ACTION: MinusCircle,
@@ -26,17 +52,47 @@ export const LIVE_STAGES = [
     narration: 'Comparing before and after against the net-benefit rule. The change is kept only if it measurably helped; otherwise it is reverted.' },
 ];
 
-function Gauge({ icon: Icon, label, value, unit, max, tone }) {
+function Gauge({ icon: Icon, label, value, unit, max, tone, provenance, stale }) {
+  const [open, setOpen] = useState(false);
   const numeric = Number.isFinite(value) ? value : null;
   const fill = max && numeric != null ? Math.max(0, Math.min(100, (numeric / max) * 100)) : null;
   return (
-    <div className="gauge">
-      <div className="gauge-head"><Icon size={15} /><span>{label}</span></div>
+    <div className={`gauge${stale ? ' gauge-stale' : ''}`}>
+      <div className="gauge-head">
+        <Icon size={15} /><span>{label}</span>
+        {provenance && (
+          <button
+            type="button"
+            className="gauge-info"
+            aria-label={`Where the ${label} number comes from`}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <Info size={13} />
+          </button>
+        )}
+      </div>
       <div className="gauge-value">
         {numeric == null ? '—' : numeric.toLocaleString(undefined, { maximumFractionDigits: 1 })}
         <span className="gauge-unit">{unit}</span>
       </div>
       {fill != null && <div className="gauge-track"><div className={`gauge-fill tone-${tone || 'accent'}`} style={{ width: `${fill}%` }} /></div>}
+
+      {open && provenance && (
+        <div className="provenance-pop" role="dialog" aria-label={`${label} provenance`}>
+          <div className="provenance-head">
+            <span>Where this number comes from</span>
+            <button type="button" aria-label="Close" onClick={() => setOpen(false)}><X size={13} /></button>
+          </div>
+          <dl className="provenance-list">
+            <div><dt>Source</dt><dd>{provenance.source}</dd></div>
+            <div><dt>Derivation</dt><dd className="mono">{provenance.derivation}</dd></div>
+            {provenance.rows?.map((r) => (
+              <div key={r.label}><dt>{r.label}</dt><dd className="mono">{r.value}</dd></div>
+            ))}
+          </dl>
+          <p className="provenance-foot">Measured live — not generated. Cross-check it in <span className="mono">psql</span>.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -78,6 +134,50 @@ function liveOutcome(action) {
   };
 }
 const round = (v) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
+
+/** Build a smooth, deterministic telemetry series from a scenario's per-stage
+ *  seed values, so the simulated running view can show the same trend graphs as
+ *  a live session. Values are interpolated between consecutive stage snapshots;
+ *  nothing is invented — the seeds come from scenarios.mjs (measured runs). */
+function buildScenarioSeries(stages) {
+  if (!stages || !stages.length) return null;
+  const STEP = 2500; // ms between synthetic readings
+  const stageStartMs = [];
+  let acc = 0;
+  stages.forEach((s) => { stageStartMs.push(acc); acc += s.durationMs || 0; });
+  const totalMs = acc;
+  const r1 = (v) => (v == null ? null : Math.round(v * 10) / 10);
+  const telAt = (t) => {
+    let i = stages.findIndex((s, idx) => t < stageStartMs[idx] + (s.durationMs || 0));
+    if (i === -1) i = stages.length - 1;
+    const cur = stages[i].telemetry || {};
+    const nxt = stages[i + 1]?.telemetry || cur;
+    const local = Math.min(1, Math.max(0, (t - stageStartMs[i]) / (stages[i].durationMs || 1)));
+    const lerp = (a, b) => (a == null ? b : b == null ? a : a + (b - a) * local);
+    return {
+      os: {
+        cpu_percent: r1(lerp(cur.cpu_percent, nxt.cpu_percent)),
+        memory_percent: r1(lerp(cur.memory_percent, nxt.memory_percent)),
+      },
+      db: {
+        query_latency_ms: r1(lerp(cur.query_latency_ms, nxt.query_latency_ms)),
+        active_workers: r1(lerp(cur.active_workers, nxt.active_workers)),
+      },
+    };
+  };
+  const points = [];
+  for (let t = 0; t <= totalMs; t += STEP) points.push({ offsetMs: t, ...telAt(t) });
+  if (!points.length || points[points.length - 1].offsetMs !== totalMs) {
+    points.push({ offsetMs: totalMs, ...telAt(totalMs) });
+  }
+  const applyIdx = stages.findIndex((s) => s.key === 'apply');
+  const observeIdx = stages.findIndex((s) => s.key === 'observe');
+  return {
+    points, totalMs, stageStartMs,
+    applyOffsetMs: applyIdx >= 0 ? stageStartMs[applyIdx] : null,
+    observeIdx,
+  };
+}
 
 /** Build "conditions observed" evidence from live telemetry snapshots — matches
  *  the shape the demo NO_ACTION / recommendation scenarios use, so live reports
@@ -158,6 +258,18 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
   const liveBaseline = useRef(null); // first meaningful live telemetry snapshot
   const liveLatest = useRef(null);   // most recent live telemetry snapshot
   const liveRan = useRef(false);     // guards against completing before the workload truly started
+  const [appliedAt, setAppliedAt] = useState(null); // ISO time the change was applied (chart marker)
+  const runStartRef = useRef(null);            // wall-clock start of the current scenario playback
+  const [elapsedMs, setElapsedMs] = useState(0); // elapsed playback time (drives the simulated feed)
+
+  // A 1s ticker so "measured Xs ago" and the session clock advance live on screen —
+  // visible proof the panel is a live feed, not a frozen screenshot.
+  const [nowTs, setNowTs] = useState(Date.now());
+  useEffect(() => {
+    if (!isLive) return undefined;
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isLive]);
 
   const presentKeys = useMemo(() => new Set(stages.map((s) => s.key)), [stages]);
   const activeStage = stageIndex >= 0 && stageIndex < stages.length ? stages[stageIndex] : null;
@@ -176,6 +288,7 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
     setTelemetry(null);
     setCue(isLive ? LIVE_STAGES[0].narration : session.summary);
     setOutcome(null);
+    setAppliedAt(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, isLive]);
 
@@ -200,6 +313,15 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
     }, acc));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
   }, [phase, session, stages, speed, runToken, isLive]);
+
+  // --- Scenario elapsed clock: drives the simulated trend feed + timers -------
+  useEffect(() => {
+    if (isLive || phase !== 'running') return undefined;
+    runStartRef.current = Date.now();
+    setElapsedMs(0);
+    const id = setInterval(() => setElapsedMs(Date.now() - runStartRef.current), 200);
+    return () => clearInterval(id);
+  }, [isLive, phase, runToken]);
 
   // --- Live player: driven by the app's real polling -----------------------
   useEffect(() => {
@@ -229,6 +351,9 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
     setStageIndex(idx);
     setCue(LIVE_STAGES[idx]?.narration || '');
 
+    // Mark the moment a change was applied, for the chart's "change applied" line.
+    if (idx >= 2 && !appliedAt) setAppliedAt(m.timestamp || new Date().toISOString());
+
     const action = status.active_action;
     if (action && (action.outcome === 'KEEP' || action.outcome === 'ROLLBACK')) {
       setOutcome(liveOutcome(action));
@@ -244,7 +369,7 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
       setStageIndex(stages.length);
       setPhase('complete');
     }
-  }, [isLive, phase, live?.tunerStatus, live?.workloadStatus, live?.metrics, stages.length]);
+  }, [isLive, phase, live?.tunerStatus, live?.workloadStatus, live?.metrics, stages.length, appliedAt]);
 
   // Report completion once (history + notifications).
   useEffect(() => {
@@ -273,6 +398,88 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
   const Vicon = outcome ? VERDICT_ICON[outcome.verdict] : null;
   const vtone = outcome ? VERDICTS[outcome.verdict]?.tone : 'neutral';
   const running = phase === 'running';
+  const speedMult = speed === 'quick' ? 0.5 : 1;
+
+  // ---- Scenario (simulated) trend feed + timeline — mirrors the live layout ---
+  const scenarioSeries = useMemo(
+    () => (isLive ? null : buildScenarioSeries(stages)),
+    [isLive, stages],
+  );
+  const scenarioChart = useMemo(() => {
+    if (isLive || !scenarioSeries) return { history: [], markerTime: null };
+    const base = runStartRef.current || Date.now();
+    const revealed = scenarioSeries.points.filter(
+      (p) => phase === 'complete' || p.offsetMs * speedMult <= elapsedMs,
+    );
+    const history = revealed.map((p) => ({
+      timestamp: new Date(base + p.offsetMs * speedMult).toISOString(),
+      os: p.os, db: p.db,
+    }));
+    const markerTime = scenarioSeries.applyOffsetMs != null
+      ? new Date(base + scenarioSeries.applyOffsetMs * speedMult).toISOString()
+      : null;
+    return { history, markerTime };
+  }, [isLive, scenarioSeries, elapsedMs, phase, speedMult]);
+
+  // Scenario timeline clock + the observation ("evaluating") countdown.
+  const scenTotalMs = scenarioSeries ? scenarioSeries.totalMs * speedMult : 0;
+  const scenElapsed = Math.min(elapsedMs, scenTotalMs);
+  const inObserve = !isLive && scenarioSeries && activeStage?.key === 'observe';
+  let obsLeftMs = 0;
+  let obsTotalMs = 0;
+  if (inObserve) {
+    const oi = scenarioSeries.observeIdx;
+    const startMs = scenarioSeries.stageStartMs[oi] * speedMult;
+    obsTotalMs = (stages[oi]?.durationMs || 0) * speedMult;
+    obsLeftMs = Math.max(0, startMs + obsTotalMs - elapsedMs);
+  }
+
+  // ---- Live provenance / freshness / timers (all from real API fields) -------
+  const prov = live?.metrics?.provenance || null;
+  const metricTs = live?.metrics?.timestamp ? new Date(live.metrics.timestamp).getTime() : null;
+  const ageSec = metricTs ? Math.max(0, (nowTs - metricTs) / 1000) : null;
+  const stale = isLive && ageSec != null && ageSec > 12; // >2 missed 5s polls
+  const interval = prov?.interval_seconds;
+  const calls = prov?.sample_calls;
+
+  // Per-gauge "where this number comes from" descriptors — every value here is real.
+  const provFor = (kind) => {
+    if (!isLive || !prov) return null;
+    const shared = [];
+    if (interval != null) shared.push({ label: 'Interval', value: `${interval}s` });
+    if (prov.collected_at) shared.push({ label: 'Collected', value: new Date(prov.collected_at).toLocaleTimeString() });
+    const map = {
+      cpu: { source: prov.os_source, derivation: 'psutil.cpu_percent(), sampled over the interval' },
+      workers: { source: 'pg_stat_activity', derivation: "count(*) where backend_type='parallel worker' and state='active'" },
+      latency: {
+        source: 'pg_stat_statements',
+        derivation: 'Σ(total_exec_time) ÷ Σ(calls) over the interval',
+        rows: [calls != null ? { label: 'Averaged over', value: `${calls.toLocaleString()} queries` } : null].filter(Boolean),
+      },
+      ctx: { source: prov.os_source, derivation: 'Δ context switches from /proc over the interval' },
+      memory: { source: prov.os_source, derivation: 'psutil.virtual_memory().percent' },
+    };
+    const base = map[kind];
+    if (!base) return null;
+    return { ...base, rows: [...(base.rows || []), ...shared] };
+  };
+
+  // Evaluation ("reading to evaluate") + cooldown countdowns.
+  const obsRemaining = useSmoothCountdown(live?.tunerStatus?.observation_remaining_seconds);
+  const coolRemaining = useSmoothCountdown(live?.tunerStatus?.cooldown_remaining_seconds);
+  const obsTotalRef = useRef(0);
+  const serverObs = live?.tunerStatus?.observation_remaining_seconds || 0;
+  if (serverObs > obsTotalRef.current) obsTotalRef.current = serverObs;
+  if (serverObs === 0 && obsRemaining === 0) obsTotalRef.current = 0;
+  const obsTotal = obsTotalRef.current;
+  const evaluating = isLive && obsRemaining > 0;
+
+  // Session clock (real: started_at + duration).
+  const startedAt = live?.workloadStatus?.started_at ? new Date(live.workloadStatus.started_at).getTime() : null;
+  const sessionTotal = live?.workloadStatus?.duration_seconds || live?.duration || null;
+  const sessionRemaining = startedAt && sessionTotal
+    ? Math.max(0, sessionTotal - (nowTs - startedAt) / 1000) : null;
+  const completedQueries = live?.workloadStatus?.completed_queries;
 
   return (
     <div className="mission">
@@ -304,8 +511,70 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
       {isLive && running && (
         <div className="session-lock">
           <span className="running-pill"><span className="pulse" /> Session in progress</span>
+          {sessionRemaining != null && (
+            <span className="session-clock" title="Time remaining in this session">
+              <Timer size={14} /> {fmtClock(sessionRemaining)} left
+            </span>
+          )}
+          {completedQueries > 0 && (
+            <span className="session-clock" title="Real queries executed against PostgreSQL so far">
+              <Database size={14} /> {completedQueries.toLocaleString()} queries run
+            </span>
+          )}
           <span className="session-lock-text">Controls are locked while the session runs so the measurement stays clean.</span>
           <button className="btn-secondary" disabled={live?.pending} onClick={live?.onStop}><Square size={14} /> Stop session</button>
+        </div>
+      )}
+
+      {!isLive && running && scenarioSeries && (
+        <div className="session-lock sim">
+          <span className="running-pill"><span className="pulse" /> Scenario playing</span>
+          <span className="session-clock" title="Position in the scripted timeline">
+            <Timer size={14} /> {fmtClock(scenElapsed / 1000)} / {fmtClock(scenTotalMs / 1000)}
+          </span>
+          {activeStage && (
+            <span className="session-clock" title="Current pipeline stage">
+              <ClipboardList size={14} /> {activeStage.label}
+            </span>
+          )}
+          <span className="session-lock-text">Simulated playback — telemetry is seeded from measured pgbench runs, not a live measurement.</span>
+        </div>
+      )}
+
+      {isLive && evaluating && (
+        <div className="evaluate-bar" role="status" aria-live="polite">
+          <div className="evaluate-head">
+            <span className="evaluate-title"><Hourglass size={15} /> Evaluating the change — measuring the result</span>
+            <span className="evaluate-count">{Math.ceil(obsRemaining)}s left</span>
+          </div>
+          <div className="evaluate-track">
+            <div className="evaluate-fill"
+              style={{ width: `${obsTotal ? Math.max(0, Math.min(100, (obsRemaining / obsTotal) * 100)) : 0}%` }} />
+          </div>
+          <p className="evaluate-note">OptiDBX keeps the change only if these readings show a real improvement — otherwise it rolls back.</p>
+        </div>
+      )}
+
+      {isLive && !evaluating && coolRemaining > 0 && (
+        <div className="evaluate-bar cooldown" role="status" aria-live="polite">
+          <div className="evaluate-head">
+            <span className="evaluate-title"><Hourglass size={15} /> Cooldown — telemetry continues</span>
+            <span className="evaluate-count">{Math.ceil(coolRemaining)}s</span>
+          </div>
+        </div>
+      )}
+
+      {inObserve && obsTotalMs > 0 && (
+        <div className="evaluate-bar" role="status" aria-live="polite">
+          <div className="evaluate-head">
+            <span className="evaluate-title"><Hourglass size={15} /> Evaluating the change — simulated observation</span>
+            <span className="evaluate-count">{Math.ceil(obsLeftMs / 1000)}s left</span>
+          </div>
+          <div className="evaluate-track">
+            <div className="evaluate-fill"
+              style={{ width: `${Math.max(0, Math.min(100, (obsLeftMs / obsTotalMs) * 100))}%` }} />
+          </div>
+          <p className="evaluate-note">In a live session this window measures the real result; here it replays the seeded observation for this scenario.</p>
         </div>
       )}
 
@@ -325,18 +594,82 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
         <section className="mission-panel telemetry-panel">
           <div className="panel-head"><h3>{isLive ? 'Live telemetry' : 'Illustrative telemetry'}</h3>
             {running && <span className="running-pill"><span className="pulse" /> Running</span>}
+            {isLive && ageSec != null && (
+              <span className={`freshness ${stale ? 'stale' : 'fresh'}`}
+                title="Age of the latest reading — it ticks up live between 5s polls">
+                <span className="fresh-dot" /> measured {Math.round(ageSec)}s ago
+              </span>
+            )}
+            {!isLive && running && (
+              <span className="freshness sim"
+                title="Simulated telemetry feed — seeded values revealed in playback order, not live measurements">
+                <span className="fresh-dot" /> simulated feed · {scenarioChart.history.length} readings
+              </span>
+            )}
           </div>
+
+          {isLive && (
+            <div className="provenance-ribbon" title="Every live number is read from these real sources — click a gauge's ⓘ to trace it">
+              <span className="prov-live"><Radio size={12} /> LIVE</span>
+              <span><Database size={12} /> PostgreSQL 16 · pg_stat_statements</span>
+              <span><HardDrive size={12} /> psutil / proc</span>
+              {calls != null && <span><ClipboardList size={12} /> {calls.toLocaleString()} queries / interval</span>}
+            </div>
+          )}
+
+          {!isLive && (
+            <div className="provenance-ribbon sim" title="These numbers are seeded from measured runs and replayed — they are not a live measurement">
+              <span className="prov-sim"><FlaskConical size={12} /> SIMULATED</span>
+              <span><Database size={12} /> Seeded from measured pgbench runs</span>
+              <span><ClipboardList size={12} /> Technical report §6</span>
+            </div>
+          )}
+
           <div className="gauge-grid">
             <Gauge icon={Cpu} label="CPU" value={telemetry?.cpu_percent} unit="%" max={100}
-              tone={(telemetry?.cpu_percent ?? 0) > 85 ? 'danger' : 'accent'} />
+              tone={(telemetry?.cpu_percent ?? 0) > 85 ? 'danger' : 'accent'} provenance={provFor('cpu')} stale={stale} />
             <Gauge icon={Users} label="Parallel workers" value={telemetry?.active_workers} unit="" max={32}
-              tone={(telemetry?.active_workers ?? 0) > 8 ? 'danger' : 'accent'} />
+              tone={(telemetry?.active_workers ?? 0) > 8 ? 'danger' : 'accent'} provenance={provFor('workers')} stale={stale} />
             <Gauge icon={Timer} label="Query latency" value={telemetry?.query_latency_ms} unit="ms" max={600}
-              tone={(telemetry?.query_latency_ms ?? 0) > 200 ? 'warning' : 'accent'} />
-            <Gauge icon={Activity} label="Context switches" value={telemetry?.context_switches} unit="/int" max={30000} tone="accent" />
+              tone={(telemetry?.query_latency_ms ?? 0) > 200 ? 'warning' : 'accent'} provenance={provFor('latency')} stale={stale} />
+            <Gauge icon={Activity} label="Context switches" value={telemetry?.context_switches} unit="/int" max={30000} tone="accent" provenance={provFor('ctx')} stale={stale} />
             <Gauge icon={MemoryStick} label="Memory" value={telemetry?.memory_percent} unit="%" max={100}
-              tone={(telemetry?.memory_percent ?? 0) > 85 ? 'warning' : 'accent'} />
+              tone={(telemetry?.memory_percent ?? 0) > 85 ? 'warning' : 'accent'} provenance={provFor('memory')} stale={stale} />
           </div>
+
+          {isLive && (
+            <div className="trend-graphs">
+              <TimeSeriesChart
+                historyData={live?.history || []}
+                metricKeys={['latency', 'throughput', 'workers']}
+                title="DBMS trend — measured on PostgreSQL"
+                markerTime={appliedAt}
+              />
+              <TimeSeriesChart
+                historyData={live?.history || []}
+                metricKeys={['cpu', 'memory']}
+                title="OS trend — measured with psutil"
+                markerTime={appliedAt}
+              />
+            </div>
+          )}
+
+          {!isLive && (running || phase === 'complete') && scenarioChart.history.length > 1 && (
+            <div className="trend-graphs">
+              <TimeSeriesChart
+                historyData={scenarioChart.history}
+                metricKeys={['latency', 'workers']}
+                title="DBMS trend — simulated (seeded from measured runs)"
+                markerTime={scenarioChart.markerTime}
+              />
+              <TimeSeriesChart
+                historyData={scenarioChart.history}
+                metricKeys={['cpu', 'memory']}
+                title="OS trend — simulated"
+                markerTime={scenarioChart.markerTime}
+              />
+            </div>
+          )}
         </section>
 
         {(isLive || phase !== 'setup') && (

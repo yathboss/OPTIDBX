@@ -107,8 +107,22 @@ export const api = {
 
   // Real Workload & Experiment Endpoints
   getWorkloadStatus: () => request('/workload/status'),
-  startWorkload: (profile, duration_seconds) => request('/workload/start', {
-    method: 'POST', body: JSON.stringify({profile, duration_seconds}),
+  getWorkloadOptions: () => request('/workload/options'),
+  startWorkload: ({
+    profile,
+    duration_seconds,
+    workload_type = 'ANALYTICAL',
+    initial_parallelism = null,
+    initial_work_mem_mb = null,
+  }) => request('/workload/start', {
+    method: 'POST',
+    body: JSON.stringify({
+      profile,
+      duration_seconds,
+      workload_type,
+      initial_parallelism,
+      initial_work_mem_mb,
+    }),
   }),
   stopWorkload: () => request('/workload/stop', {method: 'POST'}),
   approve: id => request(`/tuner/actions/${encodeURIComponent(id)}/approve`, {method: 'POST'}),

@@ -24,8 +24,38 @@ class DBMetrics(BaseModel):
     active_workers: int = Field(..., description="Active parallel query workers")
 
 
+class MetricProvenance(BaseModel):
+    """Where the published numbers come from, for the 'not fake' verification view.
+
+    Every field is a real, independently checkable fact about how the latest
+    interval was measured — the collector source, the exact interval length, and
+    how many completed statements the DB latency was averaged over.
+    """
+
+    db_source: str = Field(
+        default="pg_stat_statements + pg_stat_database + pg_stat_activity",
+        description="PostgreSQL catalogs the DB metrics are read from",
+    )
+    os_source: str = Field(
+        default="psutil (/proc)", description="Collector the OS metrics are read from"
+    )
+    sample_calls: int | None = Field(
+        default=None,
+        description="Completed statements the DB latency was averaged over this interval",
+    )
+    interval_seconds: float | None = Field(
+        default=None, description="Measured length of the interval the deltas span"
+    )
+    collected_at: str | None = Field(
+        default=None, description="ISO timestamp the latest interval was collected"
+    )
+
+
 class CurrentMetricsResponse(BaseModel):
     timestamp: str = Field(..., description="ISO 8601 timestamp of metric collection")
     os: OSMetrics
     db: DBMetrics
+    provenance: MetricProvenance | None = Field(
+        default=None, description="Real derivation inputs for the latest reading"
+    )
 

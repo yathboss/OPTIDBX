@@ -1,46 +1,66 @@
 import React, { useState } from 'react';
 import { LineChart as ChartIcon } from 'lucide-react';
 
-export default function TimeSeriesChart({ historyData = [] }) {
-  const [metricKey, setMetricKey] = useState('cpu'); // 'cpu', 'latency', 'throughput'
+// Metric definitions (module-level so callers can pick a subset by key).
+const METRICS_CONFIG = {
+  cpu: {
+    label: 'CPU Utilization',
+    unit: '%',
+    color: '#f4610c',
+    fillColor: 'rgba(244, 97, 12, 0.15)',
+    getValue: (item) => item?.os?.cpu_percent ?? 0,
+  },
+  latency: {
+    label: 'Query Latency',
+    unit: 'ms',
+    color: '#f59e0b',
+    fillColor: 'rgba(245, 158, 11, 0.15)',
+    getValue: (item) => item?.db?.query_latency_ms ?? 0,
+  },
+  throughput: {
+    label: 'Throughput',
+    unit: 'TPS',
+    color: '#5b6675',
+    fillColor: 'rgba(91, 102, 117, 0.15)',
+    getValue: (item) => item?.db?.throughput_tps ?? 0,
+  },
+  workers: {
+    label: 'Parallel Workers',
+    unit: '',
+    color: '#3b82f6',
+    fillColor: 'rgba(59, 130, 246, 0.15)',
+    getValue: (item) => item?.db?.active_workers ?? 0,
+  },
+  memory: {
+    label: 'Memory Usage',
+    unit: '%',
+    color: '#94a3b8',
+    fillColor: 'rgba(148, 163, 184, 0.15)',
+    getValue: (item) => item?.os?.memory_percent ?? 0,
+  },
+};
 
-  // Metric definitions
-  const metricsConfig = {
-    cpu: {
-      label: 'CPU Utilization',
-      unit: '%',
-      color: '#f4610c',
-      fillColor: 'rgba(244, 97, 12, 0.15)',
-      getValue: (item) => item?.os?.cpu_percent ?? 0,
-    },
-    latency: {
-      label: 'Query Latency',
-      unit: 'ms',
-      color: '#f59e0b',
-      fillColor: 'rgba(245, 158, 11, 0.15)',
-      getValue: (item) => item?.db?.query_latency_ms ?? 0,
-    },
-    throughput: {
-      label: 'Throughput',
-      unit: 'TPS',
-      color: '#5b6675',
-      fillColor: 'rgba(91, 102, 117, 0.15)',
-      getValue: (item) => item?.db?.throughput_tps ?? 0,
-    },
-    memory: {
-      label: 'Memory Usage',
-      unit: '%',
-      color: '#94a3b8',
-      fillColor: 'rgba(148, 163, 184, 0.15)',
-      getValue: (item) => item?.os?.memory_percent ?? 0,
-    },
-  };
+const TAB_LABEL = {
+  cpu: 'CPU %', latency: 'Latency (ms)', throughput: 'Throughput (TPS)',
+  workers: 'Workers', memory: 'Memory %',
+};
 
-  const currentConfig = metricsConfig[metricKey];
+export default function TimeSeriesChart({
+  historyData = [],
+  metricKeys = ['cpu', 'latency', 'throughput', 'memory'],
+  title = 'Real-Time Telemetry Trend (5s Resolution)',
+  markerTime = null,
+}) {
+  const [metricKey, setMetricKey] = useState(metricKeys[0]);
+  const activeKey = metricKeys.includes(metricKey) ? metricKey : metricKeys[0];
+
+  const metricsConfig = METRICS_CONFIG;
+  const currentConfig = metricsConfig[activeKey];
 
   // Prepare data points
   const points = (historyData.length > 0 ? historyData : []).map((item, idx) => ({
     val: currentConfig.getValue(item),
+    ts: item?.timestamp ? new Date(item.timestamp).getTime() : null,
     time: item?.timestamp ? new Date(item.timestamp).toLocaleTimeString() : `#${idx}`,
   }));
 
@@ -71,6 +91,15 @@ export default function TimeSeriesChart({ historyData = [] }) {
       ` ${coords[coords.length - 1].x},${paddingY + chartH}`
     : '';
 
+  // Locate the "change applied" moment on the timeline: the first sample at or
+  // after the action timestamp. This makes cause -> effect visible.
+  const markerMs = markerTime ? new Date(markerTime).getTime() : null;
+  let markerX = null;
+  if (markerMs && coords.length > 1) {
+    const hit = coords.find((c) => c.ts != null && c.ts >= markerMs);
+    if (hit) markerX = hit.x;
+  }
+
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   return (
@@ -78,36 +107,19 @@ export default function TimeSeriesChart({ historyData = [] }) {
       <div className="chart-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <ChartIcon size={18} color="var(--accent-blue)" />
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>
-            Real-Time Telemetry Trend (5s Resolution)
-          </span>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{title}</span>
         </div>
 
         <div className="chart-tabs">
-          <button
-            className={`chart-tab-btn ${metricKey === 'cpu' ? 'active' : ''}`}
-            onClick={() => setMetricKey('cpu')}
-          >
-            CPU %
-          </button>
-          <button
-            className={`chart-tab-btn ${metricKey === 'latency' ? 'active' : ''}`}
-            onClick={() => setMetricKey('latency')}
-          >
-            Latency (ms)
-          </button>
-          <button
-            className={`chart-tab-btn ${metricKey === 'throughput' ? 'active' : ''}`}
-            onClick={() => setMetricKey('throughput')}
-          >
-            Throughput (TPS)
-          </button>
-          <button
-            className={`chart-tab-btn ${metricKey === 'memory' ? 'active' : ''}`}
-            onClick={() => setMetricKey('memory')}
-          >
-            Memory %
-          </button>
+          {metricKeys.map((k) => (
+            <button
+              key={k}
+              className={`chart-tab-btn ${activeKey === k ? 'active' : ''}`}
+              onClick={() => setMetricKey(k)}
+            >
+              {TAB_LABEL[k] || k}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -117,7 +129,7 @@ export default function TimeSeriesChart({ historyData = [] }) {
           style={{ width: '100%', height: 'auto', display: 'block' }}
         >
           <defs>
-            <linearGradient id={`grad-${metricKey}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={`grad-${activeKey}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={currentConfig.color} stopOpacity="0.3" />
               <stop offset="100%" stopColor={currentConfig.color} stopOpacity="0.0" />
             </linearGradient>
@@ -152,9 +164,25 @@ export default function TimeSeriesChart({ historyData = [] }) {
             );
           })}
 
+          {/* "Change applied" marker — the moment OptiDBX altered a setting. */}
+          {markerX != null && (
+            <g>
+              <line
+                x1={markerX} y1={paddingY} x2={markerX} y2={paddingY + chartH}
+                stroke="var(--accent-blue, #3b82f6)" strokeWidth="2" strokeDasharray="5 3"
+              />
+              <text
+                x={markerX + 4} y={paddingY + 10} fill="var(--accent-blue, #3b82f6)"
+                fontSize="10" fontWeight="700" fontFamily="var(--font-mono)"
+              >
+                change applied
+              </text>
+            </g>
+          )}
+
           {/* Fill area */}
           {coords.length > 1 && (
-            <polygon points={areaPoints} fill={`url(#grad-${metricKey})`} />
+            <polygon points={areaPoints} fill={`url(#grad-${activeKey})`} />
           )}
 
           {/* Line */}
