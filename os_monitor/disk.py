@@ -16,7 +16,6 @@ import logging
 from typing import Tuple, Optional
 import psutil
 
-
 logger = logging.getLogger("optidbx.os_monitor.disk")
 
 
