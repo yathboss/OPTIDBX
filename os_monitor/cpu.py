@@ -40,7 +40,6 @@ def get_cpu_percent(interval: Optional[float] = None) -> float:
     if not _cpu_initialized and interval is None:
         init_cpu()
         
-
     try:
         val = psutil.cpu_percent(interval=interval)
         if val is None or not isinstance(val, (int, float)):
