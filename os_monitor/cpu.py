@@ -10,7 +10,6 @@ import logging
 from typing import Optional
 import psutil
 
-
 logger = logging.getLogger("optidbx.os_monitor.cpu")
 
 _cpu_initialized: bool = False
