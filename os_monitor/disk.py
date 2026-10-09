@@ -42,6 +42,7 @@ class DiskTracker:
         Returns:
             Tuple[int, int]: (disk_read_bytes, disk_write_bytes)
 
+
         Behavior:
             - On the very first sample (no prior baseline), returns (0, 0) and records baseline.
             - On subsequent samples, returns (current_read - prev_read, current_write - prev_write).
