@@ -2,7 +2,6 @@
 OptiDBX OS Telemetry - CPU Metric Extractor
 Developer 3: Aryaman Singh (OS & Telemetry Engineer)
 
-
 Collects overall system CPU utilization percentage.
 Shared contract field: cpu_percent (float, 0.0 to 100.0).
 """
