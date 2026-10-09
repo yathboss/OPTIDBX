@@ -29,8 +29,7 @@ class DiskTracker:
         self._prev_read_bytes: Optional[int] = None
         self._prev_write_bytes: Optional[int] = None
 
-
-    def reset(self) -> None:
+   def reset(self) -> None:
         """Reset internal counter state."""
         self._prev_read_bytes = None
         self._prev_write_bytes = None
