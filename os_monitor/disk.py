@@ -32,6 +32,7 @@ class DiskTracker:
    def reset(self) -> None:
         """Reset internal counter state."""
         self._prev_read_bytes = None
+        
         self._prev_write_bytes = None
         self.interval_valid = False
 
