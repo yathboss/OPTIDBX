@@ -5,7 +5,6 @@ Developer 3: Aryaman Singh (OS & Telemetry Engineer)
 Exposes high-level OS monitoring interfaces for Autotuner (Yatharth)
 and Dashboard/Backend (Shivansh).
 """
-
 from os_monitor.collector import (
     OSMetricsCollector,
     get_global_collector,
