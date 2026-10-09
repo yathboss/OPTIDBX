@@ -50,7 +50,6 @@ def get_cpu_percent(interval: Optional[float] = None) -> float:
         if val < 0.0 or val > 100.0:
             logger.warning(f"CPU percent out of bounds ({val}), clamping to [0.0, 100.0]")
             val = max(0.0, min(100.0, val))
-            
 
 
         return round(val, 2)
