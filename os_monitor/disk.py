@@ -96,7 +96,6 @@ class DiskTracker:
 
 _default_disk_tracker = DiskTracker()
 
-
 def get_disk_io_deltas() -> Tuple[int, int]:
     """Convenience function using the default singleton tracker."""
     return _default_disk_tracker.get_io_deltas()
