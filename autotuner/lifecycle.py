@@ -309,23 +309,45 @@ class ActionLifecycle:
 
         # OS resource-degradation guard from telemetry applies regardless of signal source.
         resource_degraded = False
+        os_resource_checks = []
         for key in ("cpu_percent", "memory_percent", "disk_read_bytes", "disk_write_bytes"):
             floor = cfg.disk_noise_floor_bytes if key.startswith("disk") else 1
-            resource_degraded |= (
-                after[key]
-                > before[key] + max(before[key], floor) * cfg.resource_degradation_percent / 100
-            )
+            threshold_val = before[key] + max(before[key], floor) * cfg.resource_degradation_percent / 100
+            failed = after[key] > threshold_val
+            resource_degraded |= failed
+            os_resource_checks.append({
+                "metric": key,
+                "before": before[key],
+                "after": after[key],
+                "threshold": round(threshold_val, 1) if isinstance(threshold_val, float) else threshold_val,
+                "passed": not failed,
+            })
+        os_veto = {
+            "name": "os_resources",
+            "label": f"OS resources within +{cfg.resource_degradation_percent}%",
+            "passed": not resource_degraded,
+            "checks": os_resource_checks,
+        }
 
         # Judge benefit from real owned-workload client measurements when available;
         # Legacy executors without the owned-measurement contract retain telemetry evaluation.
         # A broken owned contract must NEVER silently fall back to a different signal.
         owned = self._owned_evaluation(cfg)
         if owned is not None:
+            all_vetoes = list(owned.get("vetoes", []))
+            all_vetoes.append(os_veto)
             with self.lock:
                 self.record["evaluation_source"] = "OWNED_WORKLOAD"
                 self.record["keep_policy"] = cfg.keep_policy
                 self.record["before_owned"] = owned["before"]
                 self.record["after_owned"] = owned["after"]
+                self.record["net_percent"] = owned.get("net_percent")
+                self.record["policy"] = cfg.keep_policy
+                self.record["weights"] = {
+                    "throughput": cfg.throughput_weight,
+                    "latency": cfg.latency_weight,
+                }
+                self.record["vetoes"] = all_vetoes
                 if not owned["insufficient"]:
                     self.record["owned_change"] = {
                         "qps_percent": owned["qps_change_percent"],
@@ -361,6 +383,23 @@ class ActionLifecycle:
                 f"latency {evaluation.latency_change_percent:+}%, "
                 f"throughput {evaluation.throughput_change_percent:+}%"
             )
+            with self.lock:
+                self.record["net_percent"] = None
+                self.record["policy"] = "telemetry_fallback"
+                self.record["weights"] = {"throughput": 1.0, "latency": 0.5}
+                self.record["vetoes"] = [
+                    {
+                        "name": "latency_cap",
+                        "label": f"Latency regression < {cfg.degradation_percent}%",
+                        "passed": not (after["query_latency_ms"] > before["query_latency_ms"] * (1 + cfg.degradation_percent / 100)),
+                    },
+                    {
+                        "name": "throughput_cap",
+                        "label": f"Throughput drop > -{cfg.degradation_percent}%",
+                        "passed": not (after["throughput_tps"] < before["throughput_tps"] * (1 - cfg.degradation_percent / 100)),
+                    },
+                    os_veto,
+                ]
 
         if not improved or degraded or resource_degraded or self.cancel_requested:
             reason = "Degraded or insufficient improvement across observation metrics"
@@ -420,7 +459,7 @@ class ActionLifecycle:
             return {"before": before, "after": after, "insufficient": True,
                     "improved": False, "degraded": False, "detail": "nonfinite changes"}
         errors_rose = after.get("error_rate", 0) > before.get("error_rate", 0)
-        keep, detail = self._keep_decision(cfg, qps_change, p95_change, errors_rose)
+        keep, detail, net, vetoes = self._keep_decision(cfg, qps_change, p95_change, errors_rose)
         return {
             "before": before,
             "after": after,
@@ -432,6 +471,13 @@ class ActionLifecycle:
             "detail": detail,
             "qps_change_percent": round(qps_change, 1),
             "p95_change_percent": round(p95_change, 1),
+            "net_percent": round(net, 1),
+            "policy": cfg.keep_policy,
+            "weights": {
+                "throughput": cfg.throughput_weight,
+                "latency": cfg.latency_weight,
+            },
+            "vetoes": vetoes,
         }
 
     def _owned_window_seconds(self):
@@ -480,20 +526,47 @@ class ActionLifecycle:
         detail = f"{policy}: qps {qps_change:+.1f}%, p95 {p95_change:+.1f}%"
         if policy == "net_benefit":
             detail += f", net {net:+.1f}%"
+
+        latency_cap = min(cfg.max_latency_regression_percent, cfg.degradation_percent)
+        throughput_cap = -cfg.degradation_percent
+
+        vetoes = [
+            {
+                "name": "errors",
+                "label": "Error rate did not increase",
+                "passed": not errors_rose,
+                "value": f"rose: {errors_rose}",
+            },
+            {
+                "name": "latency_cap",
+                "label": f"Tail latency blowout < +{latency_cap}%",
+                "passed": p95_change < latency_cap,
+                "threshold_percent": latency_cap,
+                "value_percent": round(p95_change, 1),
+            },
+            {
+                "name": "throughput_cap",
+                "label": f"Throughput regression > {throughput_cap}%",
+                "passed": qps_change > throughput_cap,
+                "threshold_percent": throughput_cap,
+                "value_percent": round(qps_change, 1),
+            },
+        ]
+
         # A latency blowout or a new error rate is never worth keeping, any policy.
         if errors_rose:
-            return False, "errors increased; " + detail
-        if p95_change >= min(cfg.max_latency_regression_percent, cfg.degradation_percent):
-            return False, "latency regressed past cap; " + detail
-        if qps_change <= -cfg.degradation_percent:
-            return False, "throughput regressed past cap; " + detail
+            return False, "errors increased; " + detail, round(net, 1), vetoes
+        if p95_change >= latency_cap:
+            return False, "latency regressed past cap; " + detail, round(net, 1), vetoes
+        if qps_change <= throughput_cap:
+            return False, "throughput regressed past cap; " + detail, round(net, 1), vetoes
         if policy == "latency_first":
-            keep = p95_change <= -cfg.improvement_percent and qps_change > -cfg.degradation_percent
+            keep = p95_change <= -cfg.improvement_percent and qps_change > throughput_cap
         elif policy == "throughput_first":
             keep = qps_change >= cfg.improvement_percent
         else:  # net_benefit: a real net win with neither axis falling off a cliff.
-            keep = net >= cfg.improvement_percent and qps_change > -cfg.degradation_percent
-        return keep, detail
+            keep = net >= cfg.improvement_percent and qps_change > throughput_cap
+        return keep, detail, round(net, 1), vetoes
 
     def _finish(self, state, reason):
         if state == "KEEP" and self.cancel_requested:

@@ -354,6 +354,10 @@ class AutotunerRuntime:
         with self._lock:
             return [sample.model_copy(deep=True) for sample in list(self._history)[-limit:]]
 
+    def get_decision_trace(self, limit=50):
+        with self._lock:
+            return self.engine.get_decision_trace(limit=limit)
+
     def get_recommendations(self):
         with self._lock:
             return [result.model_copy(deep=True) for result in self._actions]

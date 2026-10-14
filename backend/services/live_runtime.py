@@ -204,3 +204,33 @@ class LiveMetricsProvider:
 
     def get_metrics_history(self, limit=20):
         return [self.serialize(sample) for sample in self.runtime.get_history(limit)]
+
+
+def get_algorithm_config(config=None):
+    from config.config_loader import load_config
+    cfg = config or load_config()
+    return {
+        "thresholds": {
+            "cpu_high_percent": cfg.thresholds.cpu_high_percent,
+            "context_switches_high_per_interval": cfg.thresholds.context_switches_high_per_interval,
+            "active_workers_high": cfg.thresholds.active_workers_high,
+            "query_latency_high_ms": cfg.thresholds.query_latency_high_ms,
+            "memory_high_percent": cfg.thresholds.memory_high_percent,
+        },
+        "required_consecutive": cfg.monitoring.consecutive_bad_readings,
+        "interval_seconds": cfg.monitoring.interval_seconds,
+        "allowed_workers": list(cfg.safe_values.max_parallel_workers_per_gather),
+        "keep_policy": cfg.tuning.keep_policy,
+        "weights": {
+            "throughput": cfg.tuning.throughput_weight,
+            "latency": cfg.tuning.latency_weight,
+        },
+        "improvement_percent": cfg.tuning.improvement_percent,
+        "degradation_percent": cfg.tuning.degradation_percent,
+        "max_latency_regression_percent": cfg.tuning.max_latency_regression_percent,
+        "resource_degradation_percent": cfg.tuning.resource_degradation_percent,
+        "observation_window_seconds": cfg.tuning.observation_window_seconds,
+        "cooldown_seconds": cfg.tuning.cooldown_seconds,
+        "baseline_warmup_seconds": cfg.tuning.baseline_warmup_seconds,
+        "rejection_memory_ttl_seconds": cfg.tuning.rejection_memory_ttl_seconds,
+    }

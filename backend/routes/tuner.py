@@ -40,6 +40,17 @@ def live_status(runtime=Depends(get_runtime)):
     return runtime.get_status()
 
 
+@router.get("/tuner/decision-trace")
+def decision_trace(limit: int = 50, runtime=Depends(get_runtime)):
+    """Returns recent tick-by-tick decision trace and active algorithm configuration."""
+    from backend.services.live_runtime import get_algorithm_config
+
+    return {
+        "ticks": runtime.get_decision_trace(limit=limit),
+        "algorithm": get_algorithm_config(runtime.config),
+    }
+
+
 @router.get("/tuner/status", response_model=TunerStatusResponse)
 def get_tuner_status(
     tuner_service: TunerService = Depends(get_tuner_service),

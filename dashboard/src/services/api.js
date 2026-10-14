@@ -92,6 +92,8 @@ export const api = {
 
   getLiveTunerStatus: () => request('/tuner/live-status'),
 
+  getDecisionTrace: (limit = 50) => request(`/tuner/decision-trace?limit=${limit}`),
+
   setTunerMode: (mode) =>
     request('/tuner/mode', {
       method: 'POST',

@@ -41,7 +41,7 @@ function PillGroup({ label, value, options, onChange, format = String }) {
 }
 
 export default function LiveSessionView({
-  metrics, history, tunerStatus, workloadStatus, pending,
+  metrics, history, tunerStatus, workloadStatus, trace, pending,
   onStart, onStop, onOpenMetrics, onComplete, locked,
 }) {
   const [profile, setProfile] = useState('MEDIUM');
@@ -92,7 +92,7 @@ export default function LiveSessionView({
           subtitle: `${workloadStatus?.workload_type ?? workloadType} · ${profile} workload on the real database`,
           category: 'DB',
         }}
-        live={{ metrics, history, tunerStatus, workloadStatus, pending, onStop, duration }}
+        live={{ metrics, history, tunerStatus, workloadStatus, trace, pending, onStop, duration }}
         onOpenMetrics={onOpenMetrics}
         onComplete={onComplete}
         onExit={() => setActive(false)}

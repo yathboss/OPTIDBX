@@ -36,6 +36,7 @@ export default function App() {
   const [tunerStatus, setTunerStatus] = useState(null);
   const [workloadStatus, setWorkloadStatus] = useState(null);
   const [experiments, setExperiments] = useState([]);
+  const [trace, setTrace] = useState(null);
   const [isLive, setIsLive] = useState(false);
   const [isWaiting, setIsWaiting] = useState(false);
   const [pending, setPending] = useState(false);
@@ -54,9 +55,9 @@ export default function App() {
     if (fetching.current) return;
     fetching.current = true;
     try {
-      const [currRes, histRes, tunerRes, workRes, expRes] = await Promise.all([
+      const [currRes, histRes, tunerRes, workRes, expRes, traceRes] = await Promise.all([
         api.getCurrentMetrics(), api.getMetricsHistory(20), api.getTunerStatus(),
-        api.getWorkloadStatus(), api.getExperiments(),
+        api.getWorkloadStatus(), api.getExperiments(), api.getDecisionTrace(30),
       ]);
 
       if (currRes.status === 200 && currRes.data) {
@@ -71,6 +72,7 @@ export default function App() {
       setTunerStatus(tunerRes?.data || null);
       setWorkloadStatus(workRes?.data || null);
       if (Array.isArray(expRes?.data)) setExperiments(expRes.data);
+      if (traceRes?.status === 200 && traceRes.data) setTrace(traceRes.data);
       setExperimentError(expRes.status === 200 ? null : expRes.message);
       setErrorMessage(currRes.status === 0 ? currRes.message : null);
     } catch {
@@ -170,6 +172,7 @@ export default function App() {
           <div className="studio">
             <LiveSessionView
               metrics={metrics} history={history} tunerStatus={tunerStatus} workloadStatus={workloadStatus}
+              trace={trace}
               pending={pending} locked={comparisonActive}
               onOpenMetrics={() => setMetricsOpen(true)}
               onComplete={handleComplete}
@@ -189,7 +192,7 @@ export default function App() {
           </div>
         )}
 
-        {route.page === 'algorithm' && <div className="studio"><AlgorithmView /></div>}
+        {route.page === 'algorithm' && <div className="studio"><AlgorithmView trace={trace} /></div>}
 
         {route.page === 'system' && <div className="studio"><SystemView /></div>}
 

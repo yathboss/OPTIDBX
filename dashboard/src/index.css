@@ -1413,6 +1413,80 @@ a:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 4px; }
 .alg-verdict.recommendation { background: #fff8f0; border-color: #f3ddc4; color: #b7560a; }
 .alg-panel.decide.keep { border-color: #f7d6bf; }
 
+/* Real Algorithm Visualizer Enhancements */
+.alg-badge-row { display: flex; align-items: center; margin-bottom: 12px; }
+.alg-source-badge { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; font-weight: 700;
+  padding: 4px 12px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+.alg-source-badge.live { background: var(--s-primary-tint); color: var(--s-primary-600); border: 1px solid #f7d6bf; }
+.alg-source-badge.example, .alg-source-badge.simulated { background: var(--s-surface-2); color: var(--s-text-soft); border: 1px solid var(--s-border); }
+.alg-source-badge.recorded { background: #f0f4f8; color: #2d3748; border: 1px solid var(--s-border); }
+
+/* Real Tick-by-Tick Decision Tape */
+.alg-tick-tape { margin: 12px 0 10px; display: flex; flex-direction: column; gap: 6px; }
+.alg-tape-label { font-size: .7rem; font-weight: 700; color: var(--s-text-soft); text-transform: uppercase; letter-spacing: .04em; }
+.alg-ticks-scroll { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 4px 2px 8px; }
+.alg-tick-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px;
+  font-size: .72rem; font-weight: 700; border: 1px solid var(--s-border); background: #fff; cursor: pointer;
+  white-space: nowrap; transition: all .15s; }
+.alg-tick-chip:hover { border-color: var(--s-primary); }
+.alg-tick-chip.latest { box-shadow: 0 0 0 2px var(--s-primary); }
+.alg-tick-chip.hi { background: var(--s-primary-tint); border-color: #f7d6bf; color: var(--s-primary-600); }
+.alg-tick-chip.ok { background: var(--s-surface-2); color: var(--s-text-soft); }
+.alg-tick-chip .tick-time { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .68rem; opacity: .85; }
+.alg-tick-chip .tick-streak { padding: 1px 5px; border-radius: 4px; background: rgba(0,0,0,.06); }
+.alg-tick-chip .tick-reset { font-size: .64rem; color: #d97706; }
+
+/* Parallelism Allowed Value Ladder */
+.alg-ladder { margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--s-surface-2); border: 1px solid var(--s-border); }
+.alg-ladder-label { font-size: .72rem; font-weight: 700; color: var(--s-text-soft); text-transform: uppercase; letter-spacing: .04em; }
+.alg-ladder-steps { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.alg-ladder-step { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 14px;
+  border-radius: 8px; border: 1px solid var(--s-border); background: #fff; min-width: 54px; }
+.alg-ladder-step .step-val { font-size: 1.15rem; font-weight: 800; color: var(--s-text); font-variant-numeric: tabular-nums; }
+.alg-ladder-step.current { border-color: #2563eb; background: #eff6ff; }
+.alg-ladder-step.current .step-val { color: #1d4ed8; }
+.alg-ladder-step.target { border-color: var(--s-primary); background: var(--s-primary-tint); box-shadow: 0 0 0 2px var(--s-primary); }
+.alg-ladder-step.target .step-val { color: var(--s-primary-600); }
+.step-badge { font-size: .6rem; font-weight: 800; text-transform: uppercase; padding: 1px 5px; border-radius: 4px; }
+.alg-ladder-step.current .step-badge { background: #dbeafe; color: #1e40af; }
+.alg-ladder-step.target .step-badge.target { background: var(--s-primary); color: #fff; }
+.alg-ladder-hint { margin: 8px 0 0; font-size: .74rem; color: var(--s-text-soft); }
+
+/* Real Formula Banner */
+.alg-net-formula-banner { padding: 8px 12px; border-radius: 8px; background: var(--s-surface-2);
+  border: 1px solid var(--s-border); margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+.formula-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--s-text-soft); }
+.formula-str { font-family: ui-monospace, "Cascadia Code", monospace; font-size: .84rem; font-weight: 700; color: var(--s-text); }
+
+/* Veto Checklist */
+.alg-vetoes-list { margin-top: 14px; }
+.alg-vetoes-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--s-text-soft); }
+.alg-vetoes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 6px; }
+.alg-veto-card { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--s-border); background: #fff;
+  display: flex; flex-direction: column; gap: 4px; }
+.alg-veto-card.pass { border-color: #bbf7d0; background: #f0fdf4; }
+.alg-veto-card.vetoed { border-color: #fecaca; background: #fef2f2; }
+.veto-head { display: flex; align-items: center; gap: 6px; }
+.veto-icon.pass { color: #16a34a; }
+.veto-icon.fail { color: #dc2626; }
+.veto-label { font-size: .75rem; font-weight: 700; color: var(--s-text); }
+.veto-body { display: flex; align-items: center; justify-content: space-between; font-size: .7rem; }
+.veto-status-badge { font-size: .62rem; font-weight: 800; padding: 1px 6px; border-radius: 4px; text-transform: uppercase; }
+.alg-veto-card.pass .veto-status-badge { background: #dcfce7; color: #15803d; }
+.alg-veto-card.vetoed .veto-status-badge { background: #fee2e2; color: #b91c1c; }
+.veto-val { font-variant-numeric: tabular-nums; color: var(--s-text-soft); }
+
+/* Raw Evidence Drawer */
+.alg-raw-drawer-container { margin-top: 16px; border-top: 1px solid var(--s-border); padding-top: 12px; }
+.alg-drawer-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.alg-raw-drawer { margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--s-surface-2); border: 1px solid var(--s-border); }
+.alg-raw-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; font-size: .74rem; color: var(--s-text-soft); margin-bottom: 10px; }
+.alg-raw-meta span { font-weight: 700; color: var(--s-text); }
+.alg-raw-meta a { color: var(--s-primary-600); font-weight: 700; display: inline-flex; align-items: center; gap: 3px; }
+.alg-raw-json { max-height: 260px; overflow-y: auto; background: #1a2230; color: #f8fafc; padding: 12px; border-radius: 8px;
+  font-family: ui-monospace, "Cascadia Code", monospace; font-size: .72rem; line-height: 1.45; margin: 0; }
+
+
 /* ============================================================
    Live-session trust layer: provenance, freshness, timers, graphs
    ============================================================ */
