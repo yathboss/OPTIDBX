@@ -680,6 +680,7 @@ export default function SessionRunner({ session, onExit, onOpenMetrics, live, on
             stageIndex={stageIndex}
             session={session}
             live={live}
+            run={{ phase, stageIndex, elapsedMs, speedMult }}
           />
         )}
       </div>
