@@ -352,3 +352,112 @@ export function scenarioFlow(scenario) {
     priorNote: verdict === 'RECOVERY' ? 'This scenario starts after contention was already confirmed (dashed).' : null,
   };
 }
+
+/* ------------------------------------------------------------ live session */
+export function liveFlow(live, maxTicks = 9) {
+  const trace = live?.trace || {};
+  const algorithm = { ...FLOW_DEFAULTS, ...(trace.algorithm || {}) };
+  const th = { ...FLOW_DEFAULTS.thresholds, ...(algorithm.thresholds || {}) };
+  const required = algorithm.required_consecutive ?? 3;
+  const status = live?.tunerStatus || {};
+  const activeAction = status.active_action || null;
+  const ticks = (trace.ticks || []).slice(-maxTicks);
+  const { beats, push } = flowBuilder();
+
+  const base = {
+    source: 'live',
+    title: 'Live session',
+    subtitle: 'Real PostgreSQL workload · backend decision trace',
+    badge: ticks.length
+      ? `LIVE · last backend tick ${new Date(ticks[ticks.length - 1].timestamp).toLocaleTimeString()}`
+      : 'LIVE · waiting for the first backend tick',
+    prior: [],
+  };
+  if (!ticks.length) {
+    push('sample', null, {
+      title: 'Waiting for the first paired sample',
+      body: 'The detector starts once the workload is running and a valid OS + PostgreSQL interval is available (every 5 s).',
+      note: 'waiting…',
+    });
+    return { ...base, verdict: null, beats, waiting: true };
+  }
+
+  let via = null;
+  let counter = 0;
+  let confirmedAt = -1;
+  for (let i = 0; i < ticks.length; i += 1) {
+    const tk = ticks[i];
+    const checks = signalChecks(null, th, tk.signals);
+    const allHot = checks.every((c) => c.hot);
+    // Trust the backend's own verdict for the streak.
+    const hot = Boolean(tk.candidate) && allHot;
+    const after = tk.consecutive ?? (hot ? counter + 1 : 0);
+    const isLast = i === ticks.length - 1;
+    const r = readingBeats(push, {
+      checks: hot ? checks : checks.map((c) => (tk.candidate === false && allHot ? { ...c, hot: false } : c)),
+      counterBefore: hot ? Math.max(0, after - 1) : counter,
+      counterAfter: after,
+      required,
+      via,
+      label: new Date(tk.timestamp).toLocaleTimeString(),
+      memory: isLast ? live?.metrics?.os?.memory_percent : null,
+      memThreshold: th.memory_high_percent ?? 85,
+      memTerminal: false,
+      invalidated: tk.invalidated,
+      isLive: true,
+    });
+    counter = after;
+    via = r === 'loop-confirm' ? 'confirm-sample' : 'mem-sample';
+    if (r === 'confirmed') { confirmedAt = i; if (tk.recommended || activeAction) break; via = null; }
+  }
+
+  let verdict = null;
+  if (confirmedAt >= 0) {
+    const tk = ticks[confirmedAt];
+    const act = activeAction?.action || status.recommended_action || status.recommendation;
+    const action = act
+      ? { param: act.parameter, from: act.old_value, to: act.new_value }
+      : tk.old_value != null ? { param: 'max_parallel_workers_per_gather', from: tk.old_value, to: tk.new_value } : null;
+    if (tk.suppressed_reason && !activeAction) {
+      push('ladder', 'confirm-ladder', {
+        title: 'Step suppressed', body: tk.suppressed_reason, note: 'suppressed',
+        ladder: { allowed: algorithm.allowed_workers, from: tk.old_value, to: null },
+      });
+    } else if (!activeAction) {
+      verdict = 'RECOMMENDATION';
+      actionBeats(push, {
+        action, allowed: algorithm.allowed_workers, verdict: 'RECOMMENDATION_PENDING',
+        threshold: algorithm.improvement_percent, latRegLimit: algorithm.max_latency_regression_percent,
+      });
+      const last = beats[beats.length - 1];
+      last.body += ' Waiting for approval or auto mode before anything is applied.';
+    } else {
+      const cmp = comparison(activeAction);
+      const evidence = cmp ? {
+        kind: 'CHANGE',
+        rows: [
+          { label: 'Owned throughput', change: round1(cmp.throughput.delta) },
+          { label: 'Owned p95 latency', change: round1(cmp.latency.delta) },
+        ],
+      } : null;
+      const outcome = status.recovery_required ? 'RECOVERY' : activeAction.outcome;
+      const observing = !outcome ? (status.observation_remaining_seconds || 1) : 0;
+      verdict = outcome || null;
+      actionBeats(push, {
+        action,
+        allowed: algorithm.allowed_workers,
+        evidence,
+        verdict: outcome,
+        detail: activeAction.reason || status.reason || '',
+        storedNet: activeAction.net_percent ?? null,
+        weights: activeAction.weights ?? algorithm.weights,
+        vetoes: activeAction.vetoes ?? null,
+        threshold: algorithm.improvement_percent,
+        latRegLimit: algorithm.max_latency_regression_percent,
+        observing,
+      });
+    }
+  }
+
+  return { ...base, verdict, beats, algorithm };
+}
