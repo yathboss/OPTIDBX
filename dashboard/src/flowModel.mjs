@@ -461,3 +461,49 @@ export function liveFlow(live, maxTicks = 9) {
 
   return { ...base, verdict, beats, algorithm };
 }
+
+/* ----------------------------------------------- scenario run synchronisation */
+const STAGE_RANK = { baseline: 0, detect: 1, apply: 2, observe: 3, decision: 4 };
+
+/**
+ * The beat a running scenario has reached: beats belonging to the current stage
+ * are revealed evenly across that stage's duration.
+ */
+export function scenarioSyncBeat(model, scenario, run) {
+  const last = model.beats.length - 1;
+  if (!run || run.phase === 'complete') return last;
+  if (run.phase !== 'running' || run.stageIndex == null || run.stageIndex < 0) return 0;
+  const stages = scenario.stages;
+  if (run.stageIndex >= stages.length) return last;
+  const mult = run.speedMult || 1;
+  let start = 0;
+  for (let i = 0; i < run.stageIndex; i += 1) start += (stages[i].durationMs || 0) * mult;
+  const dur = (stages[run.stageIndex].durationMs || 1) * mult;
+  const frac = Math.min(0.999, Math.max(0, ((run.elapsedMs || 0) - start) / dur));
+  const key = stages[run.stageIndex].key;
+  const rank = STAGE_RANK[key] ?? 0;
+  const inStage = [];
+  let before = 0;
+  model.beats.forEach((b, i) => {
+    const r = STAGE_RANK[b.stage] ?? 0;
+    if (b.stage === key) inStage.push(i);
+    else if (r < rank) before = i;
+  });
+  if (!inStage.length) return before;
+  return inStage[Math.min(inStage.length - 1, Math.floor(frac * inStage.length))];
+}
+
+/* ------------------------------------------------- derived render state */
+/** Visit counts and latest per-node annotations up to (and including) beat `b`. */
+export function flowState(model, b) {
+  const nodes = {};
+  const edges = {};
+  (model?.prior || []).forEach((n) => { nodes[n] = { visits: 0, prior: true }; });
+  (model?.beats || []).slice(0, b + 1).forEach((beat, i) => {
+    const n = nodes[beat.node] || { visits: 0 };
+    nodes[beat.node] = { ...n, visits: n.visits + 1, note: beat.note ?? n.note, lastBeat: i, prior: false };
+    if (beat.via) edges[beat.via] = (edges[beat.via] || 0) + 1;
+  });
+  const current = model?.beats?.[b] || null;
+  return { nodes, edges, current, currentNode: current?.node, currentEdge: current?.via };
+}
