@@ -97,3 +97,170 @@ export const FLOW_EDGES = {
 };
 
 export const FLOW_VIEWBOX = '0 0 920 1130';
+
+/* --------------------------------------------------------------- helpers */
+const SIGNALS = [
+  { key: 'cpu_percent', label: 'CPU', unit: '%', th: 'cpu_high_percent' },
+  { key: 'context_switches', label: 'Context switches', unit: '/int', th: 'context_switches_high_per_interval' },
+  { key: 'active_workers', label: 'Parallel workers', unit: '', th: 'active_workers_high' },
+  { key: 'query_latency_ms', label: 'Query latency', unit: 'ms', th: 'query_latency_high_ms' },
+];
+
+const fmt = (v, unit = '') => (Number.isFinite(v) ? `${Math.round(v * 10) / 10}${unit}` : '—');
+const signed = (v) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v}%` : '—');
+
+/** Evaluate the four signals against thresholds (or take the backend's verdicts). */
+function signalChecks(values, thresholds, backendSignals = null) {
+  return SIGNALS.map((s) => {
+    const b = backendSignals?.[s.key];
+    const value = b ? b.value : values?.[s.key];
+    const limit = b?.threshold ?? thresholds[s.th];
+    const hot = b ? Boolean(b.passed) : Number.isFinite(value) && value >= limit;
+    return { key: s.key, label: s.label, unit: s.unit, value, limit, hot };
+  });
+}
+
+function sampleText(checks) {
+  return checks.map((c) => `${c.label} ${fmt(c.value, c.unit)}`).join(' · ');
+}
+
+/** Small builder that tracks node annotations as beats are pushed. */
+function flowBuilder() {
+  const beats = [];
+  const ctx = { stage: null };
+  // Each beat records the scenario stage it belongs to, so the flowchart can
+  // follow a running scenario stage by stage.
+  const push = (node, via, info) => beats.push({ node, via: via || null, stage: ctx.stage, ...info });
+  const setStage = (stage) => { ctx.stage = stage; };
+  return { beats, push, setStage };
+}
+
+/** Beats for one telemetry reading entering the detector. */
+function readingBeats(push, { checks, counterBefore, counterAfter, required, via, label, memory, memThreshold, memTerminal, invalidated, isLive }) {
+  const hot = checks.every((c) => c.hot);
+  const nHot = checks.filter((c) => c.hot).length;
+  push('sample', via, {
+    title: `${label}: telemetry sampled`,
+    body: invalidated && checks.every((c) => c.value == null)
+      ? `No valid paired OS/DB sample (${invalidated}).`
+      : sampleText(checks),
+    note: label,
+    checks,
+  });
+  push('test', 'sample-test', {
+    title: hot ? 'All four signals are HOT' : `${nHot} of 4 signals HOT — not contention`,
+    body: hot
+      ? 'CPU, context switches, parallel workers and latency are all at or above their thresholds in the same interval.'
+      : `Contention needs all four at once. Failing: ${checks.filter((c) => !c.hot).map((c) => `${c.label} ${fmt(c.value, c.unit)} < ${c.limit}${c.unit}`).join(', ')}.`,
+    note: hot ? 'Yes — 4/4 HOT' : `No — ${nHot}/4 HOT`,
+    checks,
+  });
+  if (hot) {
+    push('count', 'test-count', {
+      title: `Counter ${counterBefore} → ${counterAfter} of ${required}`,
+      body: `One more consecutive HOT reading. ${counterAfter < required ? `${required - counterAfter} more needed before anything can change.` : 'The streak is long enough.'}`,
+      note: `${counterAfter}/${required}`,
+      counter: counterAfter,
+    });
+    push('confirm', 'count-confirm', {
+      title: counterAfter >= required ? 'Bottleneck CONFIRMED' : `Not yet — ${counterAfter}/${required}`,
+      body: counterAfter >= required
+        ? `${required} consecutive HOT readings: this is sustained CPU/parallelism contention, not a transient spike.`
+        : 'Keep sampling. A single normal reading would reset the streak to zero.',
+      note: counterAfter >= required ? 'Yes — confirmed' : `No — ${counterAfter}/${required}`,
+      counter: counterAfter,
+    });
+    return counterAfter >= required ? 'confirmed' : 'loop-confirm';
+  }
+  push('reset', 'test-reset', {
+    title: counterBefore > 0 ? `Streak broken: ${counterBefore} → 0` : 'Counter stays at 0',
+    body: invalidated || (counterBefore > 0
+      ? 'A normal reading interrupted the streak, so the counter resets. This is what filters transient spikes.'
+      : 'No streak in progress — nothing to confirm.'),
+    note: `${counterBefore} → 0`,
+    counter: 0,
+  });
+  const memHot = Number.isFinite(memory) && memory >= memThreshold;
+  push('mem', 'reset-mem', {
+    title: memHot ? `Memory ${fmt(memory, '%')} ≥ ${memThreshold}%` : (Number.isFinite(memory) ? `Memory ${fmt(memory, '%')} < ${memThreshold}%` : 'Memory check'),
+    body: isLive
+      ? 'The live engine only acts on CPU/parallelism contention; memory pressure is never auto-tuned, so sampling continues.'
+      : memHot
+        ? 'Memory pressure is real, but memory/OS tuning is outside the approved automatic action set.'
+        : 'No out-of-scope pressure either. Keep sampling.',
+    note: memHot ? 'Yes' : 'No',
+  });
+  if (memHot && memTerminal) return 'memory';
+  return 'loop-mem';
+}
+
+/** Beats for the act/observe/decide tail of the flow. */
+function actionBeats(push, { setStage = () => {}, action, allowed, evidence, verdict, detail, storedNet, weights, vetoes, threshold, observing, latRegLimit }) {
+  setStage('apply');
+  push('ladder', 'confirm-ladder', {
+    title: action ? `Step ${action.from ?? '?'} → ${action.to}` : 'Choosing a step',
+    body: action
+      ? `Exactly one step down the allowed ladder [${allowed.join(', ')}] for ${action.param || 'max_parallel_workers_per_gather'} — never a jump.`
+      : 'Confirmed contention; the engine picks the next lower value on the allowed ladder.',
+    note: action ? `${action.from ?? '?'} → ${action.to}` : '',
+    ladder: { allowed, from: action?.from, to: action?.to },
+  });
+  if (verdict === 'RECOMMENDATION_PENDING') return;
+  push('apply', 'ladder-apply', {
+    title: 'Journaled, applied, verified',
+    body: 'The action is written to the on-disk recovery journal first, applied to the owned sessions only, then the new value is read back to verify it took effect.',
+    note: action ? `${action.param ? action.param.replace('max_parallel_workers_per_gather', 'workers/gather') : 'workers/gather'} = ${action.to}` : 'applied',
+  });
+  const nb = netBenefit(evidence, storedNet, weights, vetoes, threshold);
+  setStage('observe');
+  if (observing) {
+    push('observe', 'apply-observe', {
+      title: `Observing… ${Math.ceil(observing)} s left`,
+      body: 'Measuring client-side throughput and p95 latency of the owned workload against its own fresh baseline.',
+      note: `${Math.ceil(observing)} s left`,
+    });
+    return;
+  }
+  push('observe', 'apply-observe', {
+    title: 'Observation window complete',
+    body: nb
+      ? `Owned throughput ${signed(nb.tGain)}, owned p95 latency ${signed(nb.p95Change)} versus the pre-change baseline.`
+      : 'The change underperformed during observation.',
+    note: nb ? `qps ${signed(nb.tGain)} · p95 ${signed(nb.p95Change)}` : 'underperformed',
+    evidence,
+  });
+  const keep = verdict === 'KEEP';
+  setStage('decision');
+  push('net', 'observe-net', {
+    title: keep ? `Net ${signed(nb?.net)} clears +${threshold}%` : (nb ? `Net ${signed(nb.net)} fails the rule` : 'Rule failed'),
+    body: nb
+      ? `${nb.formulaStr}. Kept only if net ≥ +${threshold}% and p95 rises less than ${latRegLimit}% and throughput falls less than 10%.`
+      : 'The observed effect did not justify the change, so a rollback is requested.',
+    note: nb ? `net ${signed(nb.net)}` : 'No',
+    nb,
+  });
+  if (keep) {
+    push('keep', 'net-keep', { title: 'Change KEPT', body: detail, note: 'kept', terminal: true });
+    return;
+  }
+  push('rollback', 'net-rollback', {
+    title: 'Rolling back',
+    body: `Restoring ${action?.param || 'max_parallel_workers_per_gather'} to its original value${action?.from != null ? ` (${action.from})` : ''}.`,
+    note: action?.from != null ? `→ ${action.from}` : 'restore',
+  });
+  if (verdict === 'RECOVERY') {
+    push('verified', 'rollback-verified', {
+      title: 'Restoration could NOT be verified',
+      body: 'The read-back did not confirm the original value, so the system refuses to guess.',
+      note: 'No',
+    });
+    push('recovery', 'verified-recovery', { title: 'Fail-closed recovery', body: detail, note: 'blocked', terminal: true });
+    return;
+  }
+  push('verified', 'rollback-verified', {
+    title: 'Original value verified',
+    body: 'The setting was read back and matches the pre-change value.',
+    note: 'Yes',
+  });
+  push('reverted', 'verified-reverted', { title: 'Change REVERTED', body: detail, note: 'reverted', terminal: true });
+}
