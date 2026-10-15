@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Play, Pause, StepForward, RotateCcw, Activity, Search, Wrench, Eye, Scale,
   CheckCircle2, XCircle, MinusCircle, Info, ShieldAlert, Radio, FileJson,
-  Download, ExternalLink, ChevronDown, ChevronUp,
+  Download, ExternalLink, ChevronDown, ChevronUp, Workflow,
 } from 'lucide-react';
+import AlgorithmFlowchart from './AlgorithmFlowchart';
 import { SCENARIOS, scenarioById } from '../scenarios.mjs';
 import { api } from '../services/api';
 import { EvidenceChart } from './SessionRunner';
@@ -722,7 +723,7 @@ export default function AlgorithmView({ trace = null }) {
   );
 }
 
-export function SessionAlgorithm({ isLive, phase, activeStage, stageIndex, session, live }) {
+export function SessionAlgorithm({ isLive, phase, activeStage, stageIndex, session, live, run }) {
   const model = useMemo(
     () => (isLive ? liveTraceModel(live, live?.trace, stageIndex) : exampleModel(session)),
     [isLive, live, stageIndex, session]
@@ -730,21 +731,30 @@ export function SessionAlgorithm({ isLive, phase, activeStage, stageIndex, sessi
   const beats = useMemo(() => (model ? buildBeats(model) : []), [model]);
   const rank = Math.min(4, Math.max(0, stageIndex ?? 0));
   const beat = Math.min(rank, beats.length - 1);
+  const [flowOpen, setFlowOpen] = useState(false);
 
   return (
     <section className="mission-panel algorithm-panel">
       <div className="panel-head">
         <h3>How the decision is being made</h3>
-        <span className={`alg-sync-tag ${isLive ? 'live' : ''}`}>
-          {isLive ? (
-            <>
-              <Radio size={12} /> Following this session
-            </>
-          ) : (
-            'Synced to the run'
-          )}
-        </span>
+        <div className="alg-head-actions">
+          <span className={`alg-sync-tag ${isLive ? 'live' : ''}`}>
+            {isLive ? (
+              <>
+                <Radio size={12} /> Following this session
+              </>
+            ) : (
+              'Synced to the run'
+            )}
+          </span>
+          <button type="button" className="btn-primary sm alg-flow-btn" onClick={() => setFlowOpen(true)}>
+            <Workflow size={15} /> Open flowchart
+          </button>
+        </div>
       </div>
+      {flowOpen && (
+        <AlgorithmFlowchart isLive={isLive} session={session} live={live} run={run} onClose={() => setFlowOpen(false)} />
+      )}
       <AlgorithmVisual
         model={model}
         beat={beat}
