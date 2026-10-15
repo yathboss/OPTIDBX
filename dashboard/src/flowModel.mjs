@@ -264,3 +264,91 @@ function actionBeats(push, { setStage = () => {}, action, allowed, evidence, ver
   });
   push('reverted', 'verified-reverted', { title: 'Change REVERTED', body: detail, note: 'reverted', terminal: true });
 }
+
+/* ------------------------------------------------------- scripted scenario */
+export function scenarioFlow(scenario) {
+  const th = FLOW_DEFAULTS.thresholds;
+  const required = FLOW_DEFAULTS.required_consecutive;
+  const stage = (k) => scenario.stages.find((s) => s.key === k)?.telemetry;
+  const baseline = stage('baseline');
+  const detect = stage('detect');
+  const decision = stage('decision');
+  const { beats, push, setStage } = flowBuilder();
+  const verdict = scenario.outcome.verdict;
+  const action = (() => {
+    const m = scenario.outcome.headline.match(/([a-z_]+)\s+(\d+)\s*(?:→|->)\s*(\d+)/i);
+    if (m) return { param: m[1], from: Number(m[2]), to: Number(m[3]) };
+    if (verdict === 'ROLLBACK' || verdict === 'RECOVERY') return { param: 'max_parallel_workers_per_gather', from: 8, to: 6 };
+    return null;
+  })();
+  const prior = [];
+
+  // Which readings reach the detector, in order.
+  // `readingStages` says which scenario stage each reading plays during.
+  let readings;
+  let readingStages;
+  if (verdict === 'RECOVERY') { readings = []; readingStages = []; }
+  else if (verdict === 'RECOMMENDATION') { readings = [baseline, detect]; readingStages = ['baseline', 'detect']; }
+  else if (verdict === 'NO_ACTION') { readings = [baseline, detect, decision]; readingStages = ['baseline', 'detect', 'decision']; }
+  else { readings = [detect, detect, detect]; readingStages = ['detect', 'detect', 'detect']; }
+
+  let counter = 0;
+  let via = null;
+  let ended = null;
+  readings.forEach((t, i) => {
+    if (ended) return;
+    setStage(readingStages[i]);
+    const checks = signalChecks(t, th);
+    const hot = checks.every((c) => c.hot);
+    const after = hot ? Math.min(counter + 1, required) : 0;
+    const r = readingBeats(push, {
+      checks, counterBefore: counter, counterAfter: after, required, via,
+      label: `Reading ${i + 1}`, memory: t?.memory_percent, memThreshold: th.memory_high_percent,
+      memTerminal: verdict === 'RECOMMENDATION',
+    });
+    counter = after;
+    if (r === 'confirmed' || r === 'memory') ended = r;
+    via = r === 'loop-confirm' ? 'confirm-sample' : 'mem-sample';
+  });
+
+  setStage('decision');
+  if (ended === 'memory') {
+    push('rec', 'mem-rec', { title: 'Surfaced as a recommendation', body: scenario.outcome.detail, note: 'explained', terminal: true });
+  } else if (verdict === 'NO_ACTION') {
+    push('sample', via, {
+      title: 'Session window ended',
+      body: `The counter never reached ${required}. No bottleneck was confirmed, so nothing is changed.`,
+      note: 'window over',
+    });
+    push('noaction', 'sample-noaction', { title: 'No change required', body: scenario.outcome.detail, note: 'no action', terminal: true });
+  } else {
+    if (verdict === 'RECOVERY') prior.push('sample', 'test', 'count', 'confirm');
+    actionBeats(push, {
+      setStage,
+      action,
+      allowed: FLOW_DEFAULTS.allowed_workers,
+      evidence: scenario.outcome.evidence,
+      verdict,
+      detail: scenario.outcome.detail,
+      threshold: FLOW_DEFAULTS.improvement_percent,
+      latRegLimit: FLOW_DEFAULTS.max_latency_regression_percent,
+    });
+    // The recovery scenario opens at Apply: everything upstream happened earlier.
+    if (verdict === 'RECOVERY') {
+      beats.shift();
+      prior.push('ladder');
+      beats[0].via = null;
+    }
+  }
+
+  return {
+    source: 'scenario',
+    title: scenario.title,
+    subtitle: scenario.subtitle,
+    badge: 'SIMULATED · seeded from measured pgbench runs',
+    verdict,
+    beats,
+    prior,
+    priorNote: verdict === 'RECOVERY' ? 'This scenario starts after contention was already confirmed (dashed).' : null,
+  };
+}
