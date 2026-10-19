@@ -31,29 +31,35 @@ export const FLOW_DEFAULTS = {
 };
 
 /* ---------------------------------------------------------------- layout */
-// Columns A (terminals left), B (main path), C (side branches). viewBox 920×1130.
-const A = 130;
-const B = 440;
-const C = 750;
+// Horizontal layout, read left → right in wrapped rows. viewBox 1440×790.
+//   upper lane  : reset → mem → rec (the "not every signal is HOT" branch)
+//   DETECT row  : noaction · sample → test → count → confirm
+//   ACT row     : ladder → apply → observe → net → keep
+//   failure lane: reverted ← verified ← rollback, recovery below verified
+const X = [120, 400, 680, 960, 1240];
+const UP = 100;
+const DETECT = 250;
+const ACT = 470;
+const FAIL = 620;
 
 export const FLOW_NODES = {
-  sample: { x: B, y: 60, shape: 'rect', title: 'Sample telemetry', sub: 'OS + PostgreSQL, every 5 s' },
-  test: { x: B, y: 175, shape: 'diamond', title: 'All 4 signals HOT?', sub: 'CPU · ctx sw · workers · latency' },
-  count: { x: B, y: 290, shape: 'rect', title: 'Confirmation counter +1', sub: 'consecutive HOT readings' },
-  confirm: { x: B, y: 405, shape: 'diamond', title: 'Counter reached 3?', sub: 'sustained, not a blip' },
-  ladder: { x: B, y: 520, shape: 'rect', title: 'Pick ONE safe step', sub: 'parallelism ladder 8·6·4·2·1' },
-  apply: { x: B, y: 630, shape: 'rect', title: 'Journal → apply → verify', sub: 'owned sessions only' },
-  observe: { x: B, y: 740, shape: 'rect', title: 'Observe owned workload', sub: '30 s window · qps + p95' },
-  net: { x: B, y: 855, shape: 'diamond', title: 'Net ≥ +5% & no veto?', sub: '1.0·Δqps − 0.5·Δp95' },
-  keep: { x: B, y: 970, shape: 'terminal', tone: 'keep', title: 'KEEP the change', sub: 'improvement proven' },
-  reset: { x: C, y: 175, shape: 'rect', title: 'Reset counter to 0', sub: 'a normal reading breaks the streak' },
-  mem: { x: C, y: 290, shape: 'diamond', title: 'Memory ≥ 85%?', sub: 'out-of-scope pressure' },
-  rec: { x: C, y: 405, shape: 'terminal', tone: 'recommendation', title: 'Explain to operator', sub: 'no automatic change' },
-  noaction: { x: A, y: 60, shape: 'terminal', tone: 'noaction', title: 'No change required', sub: 'never confirmed' },
-  rollback: { x: C, y: 855, shape: 'rect', title: 'Roll back + verify', sub: 'restore original value' },
-  verified: { x: C, y: 970, shape: 'diamond', title: 'Rollback verified?', sub: 'read back the setting' },
-  reverted: { x: C, y: 1080, shape: 'terminal', tone: 'rollback', title: 'Change REVERTED', sub: 'safe original restored' },
-  recovery: { x: B, y: 1080, shape: 'terminal', tone: 'recovery', title: 'Fail-closed RECOVERY', sub: 'actions blocked' },
+  sample: { x: X[1], y: DETECT, shape: 'rect', title: 'Sample telemetry', sub: 'OS + PostgreSQL, every 5 s' },
+  test: { x: X[2], y: DETECT, shape: 'diamond', title: 'All 4 signals HOT?', sub: 'CPU · ctx sw · workers · latency' },
+  count: { x: X[3], y: DETECT, shape: 'rect', title: 'Confirmation counter +1', sub: 'consecutive HOT readings' },
+  confirm: { x: X[4], y: DETECT, shape: 'diamond', title: 'Counter reached 3?', sub: 'sustained, not a blip' },
+  ladder: { x: X[0], y: ACT, shape: 'rect', title: 'Pick ONE safe step', sub: 'parallelism ladder 8·6·4·2·1' },
+  apply: { x: X[1], y: ACT, shape: 'rect', title: 'Journal → apply → verify', sub: 'owned sessions only' },
+  observe: { x: X[2], y: ACT, shape: 'rect', title: 'Observe owned workload', sub: '30 s window · qps + p95' },
+  net: { x: X[3], y: ACT, shape: 'diamond', title: 'Net ≥ +5% & no veto?', sub: '1.0·Δqps − 0.5·Δp95' },
+  keep: { x: X[4], y: ACT, shape: 'terminal', tone: 'keep', title: 'KEEP the change', sub: 'improvement proven' },
+  reset: { x: X[2], y: UP, shape: 'rect', title: 'Reset counter to 0', sub: 'a normal reading breaks the streak' },
+  mem: { x: X[3], y: UP, shape: 'diamond', title: 'Memory ≥ 85%?', sub: 'out-of-scope pressure' },
+  rec: { x: X[4], y: UP, shape: 'terminal', tone: 'recommendation', title: 'Explain to operator', sub: 'no automatic change' },
+  noaction: { x: X[0], y: DETECT, shape: 'terminal', tone: 'noaction', title: 'No change required', sub: 'never confirmed' },
+  rollback: { x: X[3], y: FAIL, shape: 'rect', title: 'Roll back + verify', sub: 'restore original value' },
+  verified: { x: X[2], y: FAIL, shape: 'diamond', title: 'Rollback verified?', sub: 'read back the setting' },
+  reverted: { x: X[1], y: FAIL, shape: 'terminal', tone: 'rollback', title: 'Change REVERTED', sub: 'safe original restored' },
+  recovery: { x: X[2], y: 740, shape: 'terminal', tone: 'recovery', title: 'Fail-closed RECOVERY', sub: 'actions blocked' },
 };
 
 export const RECT_W = 210;
@@ -67,36 +73,46 @@ const left = (n) => [FLOW_NODES[n].x - (FLOW_NODES[n].shape === 'diamond' ? DIA_
 const right = (n) => [FLOW_NODES[n].x + (FLOW_NODES[n].shape === 'diamond' ? DIA_W : RECT_W / 2), FLOW_NODES[n].y];
 
 export const FLOW_EDGES = {
-  'sample-test': { from: 'sample', to: 'test', points: [bottom('sample'), top('test')] },
-  'test-count': { from: 'test', to: 'count', label: 'Yes', points: [bottom('test'), top('count')] },
-  'test-reset': { from: 'test', to: 'reset', label: 'No', points: [right('test'), left('reset')] },
-  'count-confirm': { from: 'count', to: 'confirm', points: [bottom('count'), top('confirm')] },
+  'sample-test': { from: 'sample', to: 'test', points: [right('sample'), left('test')] },
+  'test-count': { from: 'test', to: 'count', label: 'Yes', points: [right('test'), left('count')] },
+  'test-reset': { from: 'test', to: 'reset', label: 'No', points: [top('test'), bottom('reset')] },
+  'count-confirm': { from: 'count', to: 'confirm', points: [right('count'), left('confirm')] },
   'confirm-sample': {
-    from: 'confirm', to: 'sample', label: 'No → next reading', loop: true, labelAt: [262, 424, 'end'],
-    points: [left('confirm'), [270, 405], [270, 112], [400, 112], [400, 89]],
+    from: 'confirm', to: 'sample', label: 'No → next reading', loop: true, labelAt: [1232, 322, 'end'],
+    points: [bottom('confirm'), [X[4], 330], [X[1], 330], bottom('sample')],
   },
-  'confirm-ladder': { from: 'confirm', to: 'ladder', label: 'Yes', points: [bottom('confirm'), top('ladder')] },
-  'reset-mem': { from: 'reset', to: 'mem', points: [bottom('reset'), top('mem')] },
+  // Wraps from the end of the DETECT row to the start of the ACT row.
+  'confirm-ladder': {
+    from: 'confirm', to: 'ladder', label: 'Yes',
+    points: [right('confirm'), [1400, DETECT], [1400, 380], [X[0], 380], top('ladder')],
+  },
+  'reset-mem': { from: 'reset', to: 'mem', points: [right('reset'), left('mem')] },
   'mem-sample': {
-    from: 'mem', to: 'sample', label: 'No → keep sampling', loop: true, labelAt: [718, 50, 'middle'],
-    points: [right('mem'), [890, 290], [890, 60], right('sample')],
+    from: 'mem', to: 'sample', label: 'No → keep sampling', loop: true, labelAt: [840, 16, 'middle'],
+    points: [top('mem'), [X[3], 24], [X[1], 24], top('sample')],
   },
-  'mem-rec': { from: 'mem', to: 'rec', label: 'Yes', points: [bottom('mem'), top('rec')] },
-  'sample-noaction': { from: 'sample', to: 'noaction', label: 'session ends', points: [left('sample'), right('noaction')] },
-  'ladder-apply': { from: 'ladder', to: 'apply', points: [bottom('ladder'), top('apply')] },
-  'apply-observe': { from: 'apply', to: 'observe', points: [bottom('apply'), top('observe')] },
-  'observe-net': { from: 'observe', to: 'net', points: [bottom('observe'), top('net')] },
-  'net-keep': { from: 'net', to: 'keep', label: 'Yes', points: [bottom('net'), top('keep')] },
-  'net-rollback': { from: 'net', to: 'rollback', label: 'No', points: [right('net'), left('rollback')] },
-  'rollback-verified': { from: 'rollback', to: 'verified', points: [bottom('rollback'), top('verified')] },
-  'verified-reverted': { from: 'verified', to: 'reverted', label: 'Yes', points: [bottom('verified'), top('reverted')] },
-  'verified-recovery': {
-    from: 'verified', to: 'recovery', label: 'No',
-    points: [left('verified'), [610, 970], [610, 1080], right('recovery')],
+  'mem-rec': { from: 'mem', to: 'rec', label: 'Yes', points: [right('mem'), left('rec')] },
+  'sample-noaction': {
+    from: 'sample', to: 'noaction', label: 'session ends', labelAt: [260, 212, 'middle'],
+    points: [left('sample'), right('noaction')],
   },
+  'ladder-apply': { from: 'ladder', to: 'apply', points: [right('ladder'), left('apply')] },
+  'apply-observe': { from: 'apply', to: 'observe', points: [right('apply'), left('observe')] },
+  'observe-net': { from: 'observe', to: 'net', points: [right('observe'), left('net')] },
+  'net-keep': { from: 'net', to: 'keep', label: 'Yes', points: [right('net'), left('keep')] },
+  'net-rollback': { from: 'net', to: 'rollback', label: 'No', points: [bottom('net'), top('rollback')] },
+  'rollback-verified': { from: 'rollback', to: 'verified', points: [left('rollback'), right('verified')] },
+  'verified-reverted': { from: 'verified', to: 'reverted', label: 'Yes', points: [left('verified'), right('reverted')] },
+  'verified-recovery': { from: 'verified', to: 'recovery', label: 'No', points: [bottom('verified'), top('recovery')] },
 };
 
-export const FLOW_VIEWBOX = '0 0 920 1130';
+export const FLOW_VIEWBOX = '0 0 1440 790';
+
+// Zone captions, placed in the free corner next to the row they describe.
+export const FLOW_ZONES = [
+  { x: X[0], y: 96, title: 'DETECT', sub: 'confirm sustained contention' },
+  { x: X[0], y: 616, title: 'ACT & VERIFY', sub: 'one step, measured, reversible' },
+];
 
 /* --------------------------------------------------------------- helpers */
 const SIGNALS = [

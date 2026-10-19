@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, Pause, StepForward, RotateCcw, Activity, Search, Wrench, Eye, Scale,
   CheckCircle2, XCircle, MinusCircle, Info, ShieldAlert, Radio, FileJson,
@@ -732,6 +732,12 @@ export function SessionAlgorithm({ isLive, phase, activeStage, stageIndex, sessi
   const rank = Math.min(4, Math.max(0, stageIndex ?? 0));
   const beat = Math.min(rank, beats.length - 1);
   const [flowOpen, setFlowOpen] = useState(false);
+  const flowRef = useRef(null);
+
+  // The flowchart expands inside the page; bring it into view once it opens.
+  useEffect(() => {
+    if (flowOpen) flowRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [flowOpen]);
 
   return (
     <section className="mission-panel algorithm-panel">
@@ -747,13 +753,20 @@ export function SessionAlgorithm({ isLive, phase, activeStage, stageIndex, sessi
               'Synced to the run'
             )}
           </span>
-          <button type="button" className="btn-primary sm alg-flow-btn" onClick={() => setFlowOpen(true)}>
-            <Workflow size={15} /> Open flowchart
+          <button
+            type="button"
+            className="btn-primary sm alg-flow-btn"
+            aria-expanded={flowOpen}
+            onClick={() => setFlowOpen((o) => !o)}
+          >
+            {flowOpen ? <><ChevronUp size={15} /> Hide flowchart</> : <><Workflow size={15} /> Open flowchart</>}
           </button>
         </div>
       </div>
       {flowOpen && (
-        <AlgorithmFlowchart isLive={isLive} session={session} live={live} run={run} onClose={() => setFlowOpen(false)} />
+        <div ref={flowRef} className="alg-flow-inline">
+          <AlgorithmFlowchart isLive={isLive} session={session} live={live} run={run} onClose={() => setFlowOpen(false)} />
+        </div>
       )}
       <AlgorithmVisual
         model={model}

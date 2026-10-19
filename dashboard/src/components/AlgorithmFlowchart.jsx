@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
-  X, Play, Pause, StepBack, StepForward, RotateCcw, Radio, Crosshair,
+  ChevronUp, Play, Pause, StepBack, StepForward, RotateCcw, Radio, Crosshair,
   CheckCircle2, XCircle,
 } from 'lucide-react';
 import {
-  FLOW_NODES, FLOW_EDGES, FLOW_VIEWBOX, RECT_W, RECT_H, DIA_W, DIA_H,
+  FLOW_NODES, FLOW_EDGES, FLOW_VIEWBOX, FLOW_ZONES, RECT_W, RECT_H, DIA_W, DIA_H,
   scenarioFlow, liveFlow, flowState, scenarioSyncBeat,
 } from '../flowModel.mjs';
 
@@ -173,9 +172,10 @@ function StepDetail({ beat, index, total }) {
 }
 
 /**
- * Full-page flowchart of the decision algorithm, walking the exact path one
- * incident takes. Scenarios replay their simulated path; live sessions follow
- * the real backend decision trace as new ticks arrive.
+ * Inline flowchart of the decision algorithm, walking the exact path one
+ * incident takes. It expands inside the session page (no overlay). Scenarios
+ * replay their simulated path; live sessions follow the real backend decision
+ * trace as new ticks arrive.
  */
 export default function AlgorithmFlowchart({ isLive, session, live, run, onClose }) {
   const model = useMemo(
@@ -191,6 +191,7 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
   const [follow, setFollow] = useState(true);
   const [speed, setSpeed] = useState('standard');
   const nodeRefs = useRef({});
+  const chartRef = useRef(null);
   const listRef = useRef(null);
 
   const b = Math.max(0, Math.min(beat, total - 1));
@@ -212,10 +213,24 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
     return () => clearTimeout(t);
   }, [playing, b, total, speed, isLive]);
 
-  // Keep the current node and step in view.
+  // Keep the current node and step in view. Only the chart box and the step
+  // list scroll — the flowchart sits inside the page, so it must never move
+  // the page itself while it follows the run.
   useEffect(() => {
-    nodeRefs.current[fs.currentNode]?.scrollIntoView?.({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-    // Scroll only the step list itself so it never drags the chart away.
+    const chart = chartRef.current;
+    const node = nodeRefs.current[fs.currentNode];
+    if (chart && node) {
+      const c = chart.getBoundingClientRect();
+      const n = node.getBoundingClientRect();
+      const outside = n.left < c.left || n.right > c.right || n.top < c.top || n.bottom > c.bottom;
+      if (outside) {
+        chart.scrollTo({
+          left: chart.scrollLeft + (n.left + n.width / 2) - (c.left + c.width / 2),
+          top: chart.scrollTop + (n.top + n.height / 2) - (c.top + c.height / 2),
+          behavior: 'smooth',
+        });
+      }
+    }
     const list = listRef.current;
     const el = list?.querySelector('.fc-step.current');
     if (list && el && list.scrollHeight > list.clientHeight) {
@@ -236,26 +251,20 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
     if (idx >= 0) go(idx);
   }, [model.beats, go]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      else if (e.key === 'ArrowRight') go(b + 1);
-      else if (e.key === 'ArrowLeft') go(b - 1);
-      else if (e.key === ' ' && e.target === document.body) { e.preventDefault(); setPlaying((p) => !p); }
-    };
-    window.addEventListener('keydown', onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
-  }, [b, go, onClose]);
+  // Keys apply only while the flowchart has focus, so they never hijack the page.
+  const onKey = (e) => {
+    if (e.key === 'Escape') onClose();
+    else if (e.key === 'ArrowRight') { e.preventDefault(); go(b + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(b - 1); }
+    else if (e.key === ' ' && e.target === e.currentTarget) { e.preventDefault(); setPlaying((p) => !p); }
+  };
 
   const reachedEnd = b >= total - 1;
   const terminalReached = fs.current?.terminal;
   const verdictShown = terminalReached ? model.verdict : null;
 
-  return createPortal(
-    <div className="fc-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="studio fc-page" role="dialog" aria-modal="true" aria-label="Algorithm flowchart">
+  return (
+    <div className="studio fc-page" role="region" aria-label="Algorithm flowchart" tabIndex={0} onKeyDown={onKey}>
       <header className="fc-header">
         <div className="fc-heading">
           <span className="fc-eyebrow">Algorithm flowchart</span>
@@ -265,8 +274,8 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
         <span className={`fc-badge ${model.source}`}>
           {model.source === 'live' && <Radio size={12} />} {model.badge}
         </span>
-        <button type="button" className="btn-ghost fc-close" onClick={onClose} aria-label="Close flowchart">
-          <X size={18} />
+        <button type="button" className="btn-ghost fc-close" onClick={onClose} aria-label="Hide flowchart" title="Hide flowchart">
+          <ChevronUp size={18} />
         </button>
       </header>
 
@@ -300,7 +309,7 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
       </div>
 
       <div className="fc-body">
-        <div className="fc-chart">
+        <div className="fc-chart" ref={chartRef}>
           <svg viewBox={FLOW_VIEWBOX} className="fc-svg" role="img" aria-label="Decision flowchart">
             <defs>
               {['idle', 'done', 'current'].map((s) => (
@@ -309,10 +318,12 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
                 </marker>
               ))}
             </defs>
-            <text x={130} y={300} textAnchor="middle" className="fc-zone">DETECT</text>
-            <text x={130} y={316} textAnchor="middle" className="fc-zone-sub">confirm sustained contention</text>
-            <text x={130} y={700} textAnchor="middle" className="fc-zone">ACT &amp; VERIFY</text>
-            <text x={130} y={716} textAnchor="middle" className="fc-zone-sub">one step, measured, reversible</text>
+            {FLOW_ZONES.map((z) => (
+              <g key={z.title}>
+                <text x={z.x} y={z.y} textAnchor="middle" className="fc-zone">{z.title}</text>
+                <text x={z.x} y={z.y + 16} textAnchor="middle" className="fc-zone-sub">{z.sub}</text>
+              </g>
+            ))}
             {Object.entries(FLOW_EDGES).map(([id, e]) => (
               <FlowEdge key={id} id={id} edge={e} count={fs.edges[id] || 0} current={fs.currentEdge === id} />
             ))}
@@ -333,31 +344,33 @@ export default function AlgorithmFlowchart({ isLive, session, live, run, onClose
             <span><i className="lg done" /> path taken</span>
             <span><i className="lg idle" /> not taken</span>
             {model.prior?.length > 0 && <span><i className="lg prior" /> happened earlier</span>}
-            <span className="fc-legend-hint">Click a node to jump · ← → to step · Esc to close</span>
+            <span className="fc-legend-hint">Click a node to jump · ← → to step · Esc to hide</span>
           </div>
           {model.priorNote && <p className="fc-prior-note">{model.priorNote}</p>}
         </div>
 
         <aside className="fc-side">
-          <StepDetail beat={fs.current} index={b} total={total} />
-          {model.waiting && (
-            <p className="fc-waiting">No live decision trace yet. Start the workload from the Live Session page — this flowchart fills in as each 5-second tick arrives.</p>
-          )}
-          <div className="fc-steps-head">Path through the algorithm</div>
-          <ol className="fc-steps" ref={listRef}>
-            {model.beats.map((x, i) => (
-              <li key={i} className={`fc-step ${i === b ? 'current' : i < b ? 'done' : 'todo'}`}>
-                <button type="button" onClick={() => go(i)}>
-                  <span className="fc-step-i">{i + 1}</span>
-                  <span className="fc-step-t">{x.title}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
+          <div className="fc-side-detail">
+            <StepDetail beat={fs.current} index={b} total={total} />
+            {model.waiting && (
+              <p className="fc-waiting">No live decision trace yet. Start the workload from the Live Session page — this flowchart fills in as each 5-second tick arrives.</p>
+            )}
+          </div>
+          <div className="fc-side-path">
+            <div className="fc-steps-head">Path through the algorithm</div>
+            <ol className="fc-steps" ref={listRef}>
+              {model.beats.map((x, i) => (
+                <li key={i} className={`fc-step ${i === b ? 'current' : i < b ? 'done' : 'todo'}`}>
+                  <button type="button" onClick={() => go(i)}>
+                    <span className="fc-step-i">{i + 1}</span>
+                    <span className="fc-step-t">{x.title}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
         </aside>
       </div>
     </div>
-    </div>,
-    document.body
   );
 }
