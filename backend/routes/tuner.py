@@ -18,9 +18,11 @@ def action_history(runtime=Depends(get_runtime)):
 
 @router.post("/tuner/actions/{action_id}/approve", response_model=RuntimeStatus)
 def approve_action(action_id: str, runtime=Depends(get_runtime)):
+    if not action_id or not action_id.strip():
+        raise HTTPException(status_code=400, detail="Action ID cannot be empty")
     try:
         with manual_control(runtime):
-            return runtime.approve(action_id)
+            return runtime.approve(action_id.strip())
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -41,9 +43,11 @@ def apply_recommended(runtime=Depends(get_runtime)):
 
 @router.post("/tuner/actions/{action_id}/rollback", response_model=RuntimeStatus)
 def rollback_action(action_id: str, runtime=Depends(get_runtime)):
+    if not action_id or not action_id.strip():
+        raise HTTPException(status_code=400, detail="Action ID cannot be empty")
     try:
         with manual_control(runtime):
-            return runtime.rollback(action_id)
+            return runtime.rollback(action_id.strip())
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
