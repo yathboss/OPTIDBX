@@ -308,6 +308,7 @@ export default function App() {
                 status={os.cpu_percent > 85 ? 'critical' : os.cpu_percent > 70 ? 'warning' : 'normal'}
                 subtitle="All Cores (WSL2)"
                 isWaiting={isWaiting}
+                tooltip="Total OS CPU across all physical/virtual cores. Sustained >80% prompts autotuner parallel worker throttling."
               />
               <MetricCard
                 title="RAM Usage"
@@ -317,6 +318,7 @@ export default function App() {
                 status={os.memory_percent > 85 ? 'warning' : 'normal'}
                 subtitle="System Memory"
                 isWaiting={isWaiting}
+                tooltip="Host memory usage. OptiDBX admission control restricts work_mem increases when RAM > 85%."
               />
               <MetricCard
                 title="Disk Read"
@@ -325,6 +327,7 @@ export default function App() {
                 icon={HardDrive}
                 subtitle="Window Read I/O"
                 isWaiting={isWaiting}
+                tooltip="Bytes read from storage during this sampling interval."
               />
               <MetricCard
                 title="Disk Write"
@@ -333,6 +336,7 @@ export default function App() {
                 icon={HardDrive}
                 subtitle="Window Write I/O"
                 isWaiting={isWaiting}
+                tooltip="Bytes written to storage (WAL, checkpoints, and temp files) during this interval."
               />
               <MetricCard
                 title="Context Switches"
@@ -342,6 +346,7 @@ export default function App() {
                 status={os.context_switches > 3000 ? 'warning' : 'normal'}
                 subtitle="OS Scheduler Events"
                 isWaiting={isWaiting}
+                tooltip="Rate of involuntary and voluntary CPU thread context switches."
               />
             </div>
 
@@ -362,6 +367,7 @@ export default function App() {
                 status={db.query_latency_ms > 200 ? 'critical' : 'normal'}
                 subtitle="Mean Response Time"
                 isWaiting={isWaiting}
+                tooltip="Mean PostgreSQL query execution time. Lower is better."
               />
               <MetricCard
                 title="Throughput"
@@ -370,6 +376,7 @@ export default function App() {
                 icon={Activity}
                 subtitle="Transactions / Sec"
                 isWaiting={isWaiting}
+                tooltip="Total completed database transactions per second (TPS). Higher is better."
               />
               <MetricCard
                 title="Temp File Spill"
@@ -379,6 +386,7 @@ export default function App() {
                 status={db.temp_files_bytes > 0 ? 'warning' : 'normal'}
                 subtitle="work_mem Spills to Disk"
                 isWaiting={isWaiting}
+                tooltip="Temp bytes spilled to disk when sort or hash operations exceed work_mem. Zero is optimal."
               />
               <MetricCard
                 title="Active Workers"
@@ -388,6 +396,7 @@ export default function App() {
                 status={db.active_workers >= 4 ? 'warning' : 'normal'}
                 subtitle="Parallel Gather Processes"
                 isWaiting={isWaiting}
+                tooltip="Current number of parallel worker processes executing PostgreSQL queries."
               />
             </div>
 
