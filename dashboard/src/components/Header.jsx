@@ -1,31 +1,8 @@
 import React from 'react';
 import { LayoutDashboard, LineChart, History, FlaskConical, Download } from 'lucide-react';
+import ConnectionStatusBadge from './ConnectionStatusBadge';
 
-export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable, onOpenExport }) {
-  const getConnectionBadge = () => {
-    if (!isLive) {
-      return (
-        <div className="badge badge-rose">
-          <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-rose)' }} />
-          Backend Offline (Port 8000)
-        </div>
-      );
-    }
-    if (isWaiting || !telemetryAvailable) {
-      return (
-        <div className="badge badge-amber">
-          <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-amber)' }} />
-          Waiting for Telemetry
-        </div>
-      );
-    }
-    return (
-      <div className="badge badge-green">
-        <span className="pulse-indicator" style={{ backgroundColor: 'var(--accent-green)' }} />
-        Live Telemetry Active
-      </div>
-    );
-  };
+export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable, onOpenExport, pingMs }) {
 
   return (
     <header className="app-header">
@@ -100,7 +77,12 @@ export default function Header({ activeTab, setActiveTab, isLive, isWaiting, tel
         <div className="badge badge-blue">
           Safe V1
         </div>
-        {getConnectionBadge()}
+        <ConnectionStatusBadge
+          isLive={isLive}
+          isWaiting={isWaiting}
+          telemetryAvailable={telemetryAvailable}
+          pingMs={pingMs}
+        />
       </div>
     </header>
   );
