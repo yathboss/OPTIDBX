@@ -26,12 +26,14 @@ import TuningHistoryTable from './components/TuningHistoryTable';
 import EvaluationView from './components/EvaluationView';
 import PerformanceEvidence from './components/PerformanceEvidence';
 import MemorySafetyPanel from './components/MemorySafetyPanel';
+import ExportModal from './components/ExportModal';
 import { api } from './services/api';
 import { formatBytesToMB } from './utils/formatters.mjs';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedScenario, setSelectedScenario] = useState('ALL');
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
   const [tunerStatus, setTunerStatus] = useState(null);
@@ -151,6 +153,14 @@ export default function App() {
         isLive={isLive}
         isWaiting={isWaiting}
         telemetryAvailable={telemetryAvailable}
+        onOpenExport={() => setIsExportOpen(true)}
+      />
+
+      <ExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        history={history}
+        tuningHistory={tuningHistory}
       />
 
       <main className="main-content">

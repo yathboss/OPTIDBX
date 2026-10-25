@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, LineChart, History, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, LineChart, History, FlaskConical, Download } from 'lucide-react';
 
-export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable }) {
+export default function Header({ activeTab, setActiveTab, isLive, isWaiting, telemetryAvailable, onOpenExport }) {
   const getConnectionBadge = () => {
     if (!isLive) {
       return (
@@ -75,6 +75,28 @@ export default function Header({ activeTab, setActiveTab, isLive, isWaiting, tel
       </div>
 
       <div className="header-right">
+        {onOpenExport && (
+          <button
+            className="action-btn"
+            onClick={onOpenExport}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: 'var(--accent-blue, #38bdf8)',
+              borderRadius: '6px',
+            }}
+          >
+            <Download size={14} />
+            Export Data
+          </button>
+        )}
         <div className="badge badge-blue">
           Safe V1
         </div>
