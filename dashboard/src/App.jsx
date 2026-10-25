@@ -27,6 +27,7 @@ import EvaluationView from './components/EvaluationView';
 import PerformanceEvidence from './components/PerformanceEvidence';
 import MemorySafetyPanel from './components/MemorySafetyPanel';
 import ExportModal from './components/ExportModal';
+import ShortcutsModal from './components/ShortcutsModal';
 import { api } from './services/api';
 import { formatBytesToMB } from './utils/formatters.mjs';
 
@@ -34,6 +35,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedScenario, setSelectedScenario] = useState('ALL');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
   const [tunerStatus, setTunerStatus] = useState(null);
@@ -125,6 +127,27 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // Global hotkeys for evaluation presentation and quick navigation
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      if (e.key === '1') setActiveTab('evidence');
+      else if (e.key === '2') setActiveTab('dashboard');
+      else if (e.key === '3') setActiveTab('metrics');
+      else if (e.key === '4') setActiveTab('tuning');
+      else if (e.key === '5') setActiveTab('experiments');
+      else if (e.key === 'r' || e.key === 'R') fetchData();
+      else if (e.key === 'e' || e.key === 'E') setIsExportOpen(prev => !prev);
+      else if (e.key === '?') setIsShortcutsOpen(prev => !prev);
+      else if (e.key === 'Escape') {
+        setIsExportOpen(false);
+        setIsShortcutsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fetchData]);
+
   const mutate = async operation => {
     if (mutating.current) return;
     mutating.current = true;
@@ -161,6 +184,11 @@ export default function App() {
         onClose={() => setIsExportOpen(false)}
         history={history}
         tuningHistory={tuningHistory}
+      />
+
+      <ShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
       />
 
       <main className="main-content">
