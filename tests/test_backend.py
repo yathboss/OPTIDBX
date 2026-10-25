@@ -27,6 +27,20 @@ class TestOptiDBXBackend(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_detailed_health_and_diagnostics_endpoints(self):
+        for path in ["/health/detailed", "/api/diagnostics"]:
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data["status"], "ok")
+            self.assertEqual(data["system"], "OptiDBX Adaptive Co-Tuning System")
+            self.assertEqual(data["version"], "1.0.0")
+            self.assertIn("capabilities", data)
+            self.assertTrue(data["capabilities"]["work_mem_tuning"])
+            self.assertTrue(data["capabilities"]["rollback_support"])
+            self.assertIn("components", data)
+            self.assertEqual(data["components"]["api_server"], "healthy")
+
     def test_current_metrics_contract(self):
         response = self.client.get("/metrics/current")
         self.assertEqual(response.status_code, 200)
