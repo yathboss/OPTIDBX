@@ -27,6 +27,7 @@ import EvaluationView from './components/EvaluationView';
 import PerformanceEvidence from './components/PerformanceEvidence';
 import MemorySafetyPanel from './components/MemorySafetyPanel';
 import { api } from './services/api';
+import { formatBytesToMB } from './utils/formatters.mjs';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -47,12 +48,6 @@ export default function App() {
   const fetching = useRef(false);
   const mutating = useRef(false);
   const [errorMessage, setErrorMessage] = useState(null);
-
-  // Helper to format byte counts into MB
-  const formatBytesToMB = (bytes) => {
-    if (bytes === null || bytes === undefined) return null;
-    return (Number(bytes) / (1024 * 1024)).toFixed(1);
-  };
 
   // 5-second Polling fetch function (Task 8)
   const fetchData = useCallback(async () => {
