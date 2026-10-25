@@ -178,6 +178,20 @@ class TestOptiDBXBackend(unittest.TestCase):
         self.assertEqual(db_res.status_code, 200)
         self.assertIsInstance(db_res.json(), list)
 
+    def test_action_approval_and_rollback_validation(self):
+        # Empty / whitespace action_id should be rejected with 400
+        approve_empty = self.client.post("/tuner/actions/%20/approve")
+        self.assertEqual(approve_empty.status_code, 400)
+        self.assertIn("Action ID cannot be empty", approve_empty.json()["detail"])
+
+        rollback_empty = self.client.post("/tuner/actions/%20/rollback")
+        self.assertEqual(rollback_empty.status_code, 400)
+        self.assertIn("Action ID cannot be empty", rollback_empty.json()["detail"])
+
+        # Non-existent action returns 409
+        non_existent = self.client.post("/tuner/actions/invalid-action-999/approve")
+        self.assertEqual(non_existent.status_code, 409)
+
 
 if __name__ == "__main__":
     unittest.main()
