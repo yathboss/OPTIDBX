@@ -4,6 +4,7 @@ import {useNotice} from './Notifications';
 import { api } from '../services/api';
 import BeforeAfterCard from './BeforeAfterCard';
 import TimeSeriesChart from './TimeSeriesChart';
+import ExperimentComparison from './ExperimentComparison';
 
 export default function EvaluationView({experiments, error}) {
   const [selected, setSelected] = useState(null);
@@ -38,5 +39,9 @@ export default function EvaluationView({experiments, error}) {
       {detail.actions?.length ? detail.actions.map(action => <BeforeAfterCard key={action.action_id} action={action} runMeta={detail}/>) : <p>No tuning action was applied in this run.</p>}
       <TimeSeriesChart historyData={history}/>
     </div>}
+
+    {/* Multi-Experiment Side-by-Side Comparison (Tasks 23-28) */}
+    <ExperimentComparison experiments={experiments} />
   </section>;
 }
+

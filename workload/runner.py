@@ -88,11 +88,11 @@ class ManagedWorkload:
             if workload_type not in queries.WORKLOAD_TYPES:
                 raise ValueError("Choose a workload type: " + ", ".join(queries.WORKLOAD_TYPES))
             if (
-                profile not in ("LOW", "MEDIUM", "HIGH")
+                profile not in ("LOW", "MEDIUM", "HIGH", "ANALYTICAL", "TEMP_SPILL")
                 or type(duration_seconds) is not int
                 or not 30 <= duration_seconds <= 600
             ):
-                raise ValueError("Choose LOW/MEDIUM/HIGH and a duration from 30 to 600 seconds")
+                raise ValueError("Choose LOW/MEDIUM/HIGH/ANALYTICAL and a duration from 30 to 600 seconds")
             if self.running or self.connections:
                 raise ValueError("A workload is already running or awaiting recovery")
             if self.runtime.lifecycle.status()["state"] != "MONITORING":

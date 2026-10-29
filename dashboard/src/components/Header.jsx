@@ -1,16 +1,14 @@
 import React from 'react';
-import { Lock } from 'lucide-react';
-import {PAGES, routeHref} from '../navigation.mjs';
+import { Lock, Download } from 'lucide-react';
+import { PAGES, routeHref } from '../navigation.mjs';
+import ConnectionStatusBadge from './ConnectionStatusBadge';
 
-// The algorithm visualization now lives inline inside a running session/scenario,
-// so it is no longer a top-level tab. The `#/algorithm` route stays reachable as a
-// secondary entry point, just off the main navigation.
 const HIDDEN_TABS = new Set(['algorithm']);
 const TABS = Object.entries(PAGES)
   .filter(([key]) => !HIDDEN_TABS.has(key))
   .map(([key, page]) => [key, page.label]);
 
-export default function Header({ activeTab, isLive, isWaiting, telemetryAvailable, locked }) {
+export default function Header({ activeTab, isLive, isWaiting, telemetryAvailable, locked, onOpenExport, pingMs }) {
   const connection = !isLive
     ? { cls: 'badge-rose', dot: 'var(--accent-rose)', text: 'Backend offline' }
     : (isWaiting || !telemetryAvailable)
@@ -44,11 +42,36 @@ export default function Header({ activeTab, isLive, isWaiting, telemetryAvailabl
       </div>
 
       <div className="header-right">
+        {onOpenExport && (
+          <button
+            className="action-btn"
+            onClick={onOpenExport}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.8rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              background: 'rgba(56, 189, 248, 0.1)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: 'var(--accent-blue, #38bdf8)',
+              borderRadius: '6px',
+            }}
+          >
+            <Download size={14} />
+            Export Data
+          </button>
+        )}
         {locked && <div className="badge badge-amber"><Lock size={12} /> Session running</div>}
-        <div className={`badge ${connection.cls}`}>
-          <span className="pulse-indicator" style={{ backgroundColor: connection.dot }} />
-          {connection.text}
-        </div>
+        <div className="badge badge-blue">Safe V1</div>
+        <ConnectionStatusBadge
+          isLive={isLive}
+          isWaiting={isWaiting}
+          telemetryAvailable={telemetryAvailable}
+          pingMs={pingMs}
+        />
       </div>
     </header>
   );

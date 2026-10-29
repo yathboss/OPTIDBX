@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { HelpCircle } from 'lucide-react';
 
 export default function MetricCard({
   title,
@@ -9,7 +10,10 @@ export default function MetricCard({
   status = 'normal', // 'normal', 'warning', 'critical'
   subtitle,
   isWaiting = false,
+  tooltip,
 }) {
+  const [showTooltip, setShowTooltip] = useState(false);
+
   const getBorderColor = () => {
     if (status === 'critical') return 'rgba(244, 97, 12, 0.45)';
     if (status === 'warning') return 'rgba(245, 158, 11, 0.4)';
@@ -38,9 +42,43 @@ export default function MetricCard({
   };
 
   return (
-    <div className="metric-card" style={{ borderColor: getBorderColor() }}>
-      <div className="metric-header">
-        <span className="metric-name">{title}</span>
+    <div className="metric-card" style={{ borderColor: getBorderColor(), position: 'relative' }}>
+      <div className="metric-header" style={{ position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="metric-name">{title}</span>
+          {tooltip && (
+            <div
+              style={{ position: 'relative', display: 'inline-flex', cursor: 'help' }}
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+            >
+              <HelpCircle size={14} style={{ color: 'var(--text-muted, #94a3b8)', opacity: 0.8 }} />
+              {showTooltip && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    transform: 'translateY(4px)',
+                    zIndex: 50,
+                    width: '210px',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    background: '#0f172a',
+                    border: '1px solid #334155',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.5)',
+                    fontSize: '0.75rem',
+                    lineHeight: '1.25',
+                    color: '#e2e8f0',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         {Icon && <Icon size={18} className="metric-icon" />}
       </div>
 

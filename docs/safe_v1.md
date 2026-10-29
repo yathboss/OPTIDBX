@@ -46,6 +46,13 @@ Do not expose this unauthenticated local control API publicly.
 7. Open **Performance Evidence** for repeated baseline/auto comparisons with
    direct workload timings, frozen verdict criteria and JSON/CSV downloads.
    See [the comparison guide](performance_evidence.md).
+8. **Telemetry Export**: Click **Export Data** in the header or press `E` to download
+   raw interval readings and autotuning decision trails in CSV or JSON format.
+9. **Keyboard Shortcuts**: Press `?` anywhere in the dashboard for the hotkey overlay:
+   `1`-`5` for view navigation, `R` for instant telemetry refresh, and `Esc` to close modals.
+10. **Architecture & Viva Guides**: See [Dashboard Architecture](dashboard_architecture.md)
+    and the [Evaluation Viva Demonstration Guide](evaluation_demo_guide.md) for step-by-step
+    presentation walkthroughs and examiner Q&A defense.
 
 Stopping monitoring during an observation requests rollback. A kept setting stays
 on its owned session until manual rollback or workload stop. Changing to

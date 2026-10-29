@@ -27,6 +27,20 @@ class TestOptiDBXBackend(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_detailed_health_and_diagnostics_endpoints(self):
+        for path in ["/health/detailed", "/api/diagnostics"]:
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data["status"], "ok")
+            self.assertEqual(data["system"], "OptiDBX Adaptive Co-Tuning System")
+            self.assertEqual(data["version"], "1.0.0")
+            self.assertIn("capabilities", data)
+            self.assertTrue(data["capabilities"]["work_mem_tuning"])
+            self.assertTrue(data["capabilities"]["rollback_support"])
+            self.assertIn("components", data)
+            self.assertEqual(data["components"]["api_server"], "healthy")
+
     def test_current_metrics_contract(self):
         response = self.client.get("/metrics/current")
         self.assertEqual(response.status_code, 200)
@@ -84,6 +98,16 @@ class TestOptiDBXBackend(unittest.TestCase):
         response = self.client.post("/tuner/mode", json={"mode": "recommendation"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["mode"], "recommendation")
+
+    def test_apply_recommended_endpoint_no_recommendation(self):
+        # When no recommendation is active, returns 400
+        response = self.client.post("/tuner/apply-recommended")
+        self.assertIn(response.status_code, (400, 409))
+
+    def test_rollback_last_endpoint_no_action(self):
+        # When no action has been applied, returns 400 or 409
+        response = self.client.post("/tuner/rollback-last")
+        self.assertIn(response.status_code, (400, 409))
 
     def test_tuning_history(self):
         # Both /tuning/history and /tuner/history should work
@@ -153,6 +177,20 @@ class TestOptiDBXBackend(unittest.TestCase):
             db_res = self.client.get("/metrics/db/history?limit=5")
         self.assertEqual(db_res.status_code, 200)
         self.assertIsInstance(db_res.json(), list)
+
+    def test_action_approval_and_rollback_validation(self):
+        # Empty / whitespace action_id should be rejected with 400
+        approve_empty = self.client.post("/tuner/actions/%20/approve")
+        self.assertEqual(approve_empty.status_code, 400)
+        self.assertIn("Action ID cannot be empty", approve_empty.json()["detail"])
+
+        rollback_empty = self.client.post("/tuner/actions/%20/rollback")
+        self.assertEqual(rollback_empty.status_code, 400)
+        self.assertIn("Action ID cannot be empty", rollback_empty.json()["detail"])
+
+        # Non-existent action returns 409
+        non_existent = self.client.post("/tuner/actions/invalid-action-999/approve")
+        self.assertEqual(non_existent.status_code, 409)
 
 
 if __name__ == "__main__":

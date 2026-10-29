@@ -38,16 +38,30 @@ const METRICS_CONFIG = {
     fillColor: 'rgba(148, 163, 184, 0.15)',
     getValue: (item) => item?.os?.memory_percent ?? 0,
   },
+  temp_spill: {
+    label: 'Temp File Spill',
+    unit: 'MB',
+    color: '#ec4899',
+    fillColor: 'rgba(236, 72, 153, 0.15)',
+    getValue: (item) => {
+      const bytes = item?.db?.temp_files_bytes ?? item?.db?.temp_bytes ?? 0;
+      return Number((Number(bytes) / (1024 * 1024)).toFixed(2));
+    },
+  },
 };
 
 const TAB_LABEL = {
-  cpu: 'CPU %', latency: 'Latency (ms)', throughput: 'Throughput (TPS)',
-  workers: 'Workers', memory: 'Memory %',
+  cpu: 'CPU %',
+  latency: 'Latency (ms)',
+  throughput: 'Throughput (TPS)',
+  workers: 'Workers',
+  memory: 'Memory %',
+  temp_spill: 'Temp Spill (MB)',
 };
 
 export default function TimeSeriesChart({
   historyData = [],
-  metricKeys = ['cpu', 'latency', 'throughput', 'memory'],
+  metricKeys = ['cpu', 'latency', 'throughput', 'memory', 'temp_spill'],
   title = 'Real-Time Telemetry Trend (5s Resolution)',
   markerTime = null,
 }) {
@@ -251,4 +265,3 @@ export default function TimeSeriesChart({
     </div>
   );
 }
-
