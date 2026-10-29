@@ -15,7 +15,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from experiments.evidence import CRITERIA, EvidenceStore, evaluate
-from workload.runner import QUERY
+from workload.queries import ANALYTICAL as QUERY
 
 
 class BenchmarkRequest(BaseModel):

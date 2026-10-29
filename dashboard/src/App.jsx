@@ -15,6 +15,18 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Header from './components/Header';
+import AmbientBackground from './components/AmbientBackground';
+import Welcome from './components/Welcome';
+import HomeView from './components/HomeView';
+import LiveSessionView from './components/LiveSessionView';
+import LiveMetricsModal from './components/LiveMetricsModal';
+import ResultsHistory from './components/ResultsHistory';
+import SessionRunner from './components/SessionRunner';
+import ScenarioGallery from './components/ScenarioGallery';
+import PerformanceEvidence from './components/PerformanceEvidence';
+import SystemView from './components/SystemView';
+import AlgorithmView from './components/AlgorithmView';
+import ErrorBoundary from './components/ErrorBoundary';
 import TopSummary from './components/TopSummary';
 import WorkloadPanel from './components/WorkloadPanel';
 import ActionControls from './components/ActionControls';
@@ -24,24 +36,40 @@ import TimeSeriesChart from './components/TimeSeriesChart';
 import BeforeAfterCard from './components/BeforeAfterCard';
 import TuningHistoryTable from './components/TuningHistoryTable';
 import EvaluationView from './components/EvaluationView';
-import PerformanceEvidence from './components/PerformanceEvidence';
 import MemorySafetyPanel from './components/MemorySafetyPanel';
 import ExportModal from './components/ExportModal';
 import ShortcutsModal from './components/ShortcutsModal';
+import { PAGES, resolveRoute, routeHref } from './navigation.mjs';
+import { useNotify, useNotice } from './components/Notifications';
+import { scenarioById } from './scenarios.mjs';
+import { recordSession } from './sessionHistory.mjs';
 import { api } from './services/api';
 import { formatBytesToMB } from './utils/formatters.mjs';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedScenario, setSelectedScenario] = useState('ALL');
+  const [route, setRoute] = useState(() => resolveRoute(window.location.hash));
+  const mainRef = useRef(null);
+  const navigate = (page, id) => { window.location.hash = routeHref(page, id); };
+  const [metricsOpen, setMetricsOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [selectedScenario, setSelectedScenario] = useState('ALL');
+
+  const [entered, setEntered] = useState(() => {
+    try { return sessionStorage.getItem('optidbx_entered') === '1'; } catch { return false; }
+  });
+  const enterApp = useCallback(() => {
+    try { sessionStorage.setItem('optidbx_entered', '1'); } catch { /* ignore */ }
+    setEntered(true);
+  }, []);
+
   const [metrics, setMetrics] = useState(null);
   const [history, setHistory] = useState([]);
   const [tunerStatus, setTunerStatus] = useState(null);
   const [workloadStatus, setWorkloadStatus] = useState(null);
   const [tuningHistory, setTuningHistory] = useState([]);
   const [experiments, setExperiments] = useState([]);
+  const [trace, setTrace] = useState(null);
   const [isLive, setIsLive] = useState(false);
   const [isWaiting, setIsWaiting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -49,26 +77,40 @@ export default function App() {
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState(null);
   const [experimentError, setExperimentError] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
   const fetching = useRef(false);
   const mutating = useRef(false);
-  const [errorMessage, setErrorMessage] = useState(null);
 
-  // 5-second Polling fetch function (Task 8)
+  const notify = useNotify();
+  useNotice(actionError || errorMessage);
+  useNotice(tunerStatus?.last_error);
+  useNotice(workloadStatus?.error);
+
+  const previousState = useRef(null);
+  useEffect(() => {
+    const state = tunerStatus?.state;
+    if (state && previousState.current && state !== previousState.current) {
+      notify(`Tuning stage: ${state.replaceAll('_', ' ')}`, state === 'ROLLBACK_FAILED' ? 'error' : 'info');
+    }
+    if (state) previousState.current = state;
+  }, [tunerStatus?.state, notify]);
+
+  // 5-second Polling fetch function
   const fetchData = useCallback(async () => {
     if (fetching.current) return;
     fetching.current = true;
     setIsRefreshing(true);
     try {
-      const [currRes, histRes, tunerRes, workRes, tuneHistRes, expRes] = await Promise.all([
+      const [currRes, histRes, tunerRes, workRes, expRes, traceRes, tuneHistRes] = await Promise.all([
         api.getCurrentMetrics(),
         api.getMetricsHistory(20),
         api.getTunerStatus(),
         api.getWorkloadStatus(),
-        api.getTuningHistory(),
         api.getExperiments(),
+        api.getDecisionTrace ? api.getDecisionTrace(30) : Promise.resolve({ status: 200, data: null }),
+        api.getTuningHistory ? api.getTuningHistory(50) : Promise.resolve({ status: 200, data: [] }),
       ]);
 
-      // Handle Current Metrics
       if (currRes.status === 200 && currRes.data) {
         setMetrics(currRes.data);
         setIsWaiting(false);
@@ -82,45 +124,25 @@ export default function App() {
         setIsLive(currRes.isLive);
       }
 
-      // Handle History Points
-      if (histRes?.data && Array.isArray(histRes.data)) {
-        setHistory(histRes.data);
-      }
-
-      // Handle Autotuner Status
+      if (Array.isArray(histRes?.data)) setHistory(histRes.data);
       setTunerStatus(tunerRes?.data || null);
-
-      // Handle Workload Status
       setWorkloadStatus(workRes?.data || null);
-
-      // Handle Tuning History
-      if (tuneHistRes?.data && Array.isArray(tuneHistRes.data)) {
-        setTuningHistory(tuneHistRes.data);
-      }
-
-      // Handle Experiments
-      if (expRes?.data && Array.isArray(expRes.data)) {
-        setExperiments(expRes.data);
-      }
+      if (Array.isArray(expRes?.data)) setExperiments(expRes.data);
+      if (traceRes?.status === 200 && traceRes.data) setTrace(traceRes.data);
+      if (Array.isArray(tuneHistRes?.data)) setTuningHistory(tuneHistRes.data);
 
       setExperimentError(expRes.status === 200 ? null : expRes.message);
       setLastUpdated(new Date());
-      setErrorMessage(currRes.status === 0 ? currRes.message
-        : tunerRes.status !== 200 ? tunerRes.message
-        : workRes.status !== 200 ? workRes.message
-        : tuneHistRes.status !== 200 ? tuneHistRes.message
-        : histRes.status !== 200 ? histRes.message : null);
-    } catch (err) {
-      console.warn('Dashboard fetch error:', err);
+      setErrorMessage(currRes.status === 0 ? currRes.message : null);
+    } catch {
       setIsLive(false);
-      setErrorMessage('Failed to connect to backend server.');
+      setErrorMessage('Failed to connect to the backend server.');
     } finally {
       fetching.current = false;
       setIsRefreshing(false);
     }
   }, []);
 
-  // Set up 5-second polling interval
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 5000);
@@ -131,11 +153,11 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
-      if (e.key === '1') setActiveTab('evidence');
-      else if (e.key === '2') setActiveTab('dashboard');
-      else if (e.key === '3') setActiveTab('metrics');
-      else if (e.key === '4') setActiveTab('tuning');
-      else if (e.key === '5') setActiveTab('experiments');
+      if (e.key === '1') navigate('study');
+      else if (e.key === '2') navigate('live');
+      else if (e.key === '3') navigate('system');
+      else if (e.key === '4') navigate('results');
+      else if (e.key === '5') navigate('scenarios');
       else if (e.key === 'r' || e.key === 'R') fetchData();
       else if (e.key === 'e' || e.key === 'E') setIsExportOpen(prev => !prev);
       else if (e.key === '?') setIsShortcutsOpen(prev => !prev);
@@ -148,7 +170,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fetchData]);
 
-  const mutate = async operation => {
+  const mutate = async (operation, success) => {
     if (mutating.current) return;
     mutating.current = true;
     setPending(true);
@@ -156,26 +178,62 @@ export default function App() {
     try {
       const result = await operation();
       if (result.status !== 200) setActionError(typeof result.message === 'string' ? result.message : JSON.stringify(result.message));
+      else if (success) notify(success, 'success');
       await fetchData();
+      return result;
+    } catch (error) {
+      setActionError(error.message || 'Request failed.');
     } finally {
       mutating.current = false;
       setPending(false);
     }
   };
 
+  const sessionLocked = Boolean(workloadStatus?.running);
+  const comparisonActive = Boolean(workloadStatus?.benchmark_id);
+  const scenario = route.page === 'scenario' ? scenarioById(route.scenarioId) : null;
+  const activeTab = route.page === 'scenario' ? 'scenarios' : route.page;
+  const livePage = route.page === 'live' || scenario?.kind === 'live';
+  const missingPage = route.page === 'not-found' || (route.page === 'scenario' && !scenario);
+
+  useEffect(() => {
+    const update = () => setRoute(resolveRoute(window.location.hash));
+    window.addEventListener('hashchange', update);
+    return () => window.removeEventListener('hashchange', update);
+  }, []);
+
+  useEffect(() => {
+    document.title = `${missingPage ? 'Page not found' : scenario?.title || PAGES[route.page]?.label || 'OptiDBX'} | OptiDBX`;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    mainRef.current?.focus({ preventScroll: true });
+  }, [route, scenario, missingPage]);
+
+  const handleComplete = useCallback(({ session, outcome }) => {
+    if (session.kind === 'live') {
+      notify(`Session complete: ${outcome.headline}`, 'success');
+      return;
+    }
+    recordSession({
+      scenarioId: session.id,
+      title: session.title,
+      subtitle: session.subtitle,
+      category: session.category,
+      outcome,
+    });
+  }, [notify]);
+
   const os = metrics?.os || {};
   const db = metrics?.db || {};
-  const telemetryAvailable = Boolean(tunerStatus?.telemetry_available);
-  const comparisonActive = Boolean(workloadStatus?.benchmark_id);
 
   return (
     <div className="app-container">
+      <AmbientBackground />
       <Header
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
         isLive={isLive}
         isWaiting={isWaiting}
-        telemetryAvailable={telemetryAvailable}
+        telemetryAvailable={Boolean(tunerStatus?.telemetry_available)}
+        locked={sessionLocked}
         onOpenExport={() => setIsExportOpen(true)}
       />
 
@@ -191,35 +249,21 @@ export default function App() {
         onClose={() => setIsShortcutsOpen(false)}
       />
 
-      <main className="main-content">
-        {comparisonActive && <div className="alert-banner alert-warning" role="status">
-          <span><strong>A comparison controls this workload.</strong> Manual workload and tuning controls are paused until it finishes or you cancel it.</span>
-          <button className="btn btn-secondary" onClick={() => setActiveTab('evidence')}>View comparison</button>
-          <button className="btn btn-danger" disabled={pending} onClick={() => mutate(api.cancelBenchmark)}>Cancel active comparison</button>
-        </div>}
-        {(actionError || errorMessage) && <div className="alert-banner alert-danger" role="alert">{actionError || errorMessage}</div>}
-        {tunerStatus?.last_error && <div className="alert-banner alert-warning" role="alert">{tunerStatus.last_error}</div>}
-        {/* Offline / Warning Alerts (Task 25) */}
-        {!isLive && (
-          <div className="alert-banner alert-danger">
-            <AlertCircle size={18} />
-            <span>
-              <strong>Backend Offline:</strong> FastAPI is not responding on <code>http://localhost:8000</code>. Run <code>uvicorn backend.main:app --port 8000</code> to start the live telemetry engine.
-            </span>
+      <main className="main-content" ref={mainRef} tabIndex={-1}>
+        {sessionLocked && !comparisonActive && !livePage && (
+          <div className="alert-banner alert-warning" role="status">
+            <span>A live workload is still running. Changing pages does not stop it.</span>
+            <a className="btn-secondary" href={routeHref('live')}>Return to live session</a>
+          </div>
+        )}
+        {comparisonActive && (
+          <div className="alert-banner alert-warning" role="status">
+            <span><strong>A paired comparison controls this workload.</strong> Session controls are paused until it finishes.</span>
+            <button className="btn btn-danger" disabled={pending} onClick={() => mutate(api.cancelBenchmark, 'Comparison cancelled.')}>Cancel comparison</button>
           </div>
         )}
 
-        {isLive && isWaiting && (
-          <div className="alert-banner alert-warning">
-            <Clock size={18} />
-            <span>
-              <strong>{tunerStatus?.running ? 'Waiting for Real Telemetry: ' : 'Telemetry paused: '}</strong>
-              {tunerStatus?.running ? 'Collectors are warming up or waiting for a valid paired interval.' : 'Start a workload or the telemetry loop to collect new samples.'}
-            </span>
-          </div>
-        )}
-
-        {/* Auto Mode Notification Banner (Task 6) */}
+        {/* Auto Mode Notification Banner */}
         {tunerStatus?.mode === 'auto' && ['BOTTLENECK_CONFIRMED', 'ACTION_APPLIED', 'OBSERVING', 'COOLDOWN'].includes(tunerStatus?.state) && (
           <div
             className="alert-banner alert-warning"
@@ -235,94 +279,172 @@ export default function App() {
               {tunerStatus.state === 'BOTTLENECK_CONFIRMED'
                 ? 'Confirmed bottleneck detected. Applying safe tuning action automatically...'
                 : tunerStatus.state === 'ACTION_APPLIED'
-                ? 'Action applied automatically. Entering 30-second observation window...'
+                ? `Tuning action applied (${tunerStatus.active_action?.action?.parameter}: ${tunerStatus.active_action?.action?.old_value} -> ${tunerStatus.active_action?.action?.new_value}). Entering 30s observation.`
                 : tunerStatus.state === 'OBSERVING'
-                ? `Observing system performance after automatic action (${tunerStatus.observation_remaining_seconds || 0}s remaining)...`
-                : `Cooldown in progress (${tunerStatus.cooldown_remaining_seconds || 0}s remaining). No new action will be applied until stable.`}
+                ? `Observing workload under tuned configuration (${tunerStatus.observation_remaining_seconds}s remaining).`
+                : tunerStatus.state === 'COOLDOWN'
+                ? `Tuning cycle evaluated (${tunerStatus.active_action?.state}). In 30s safety cooldown (${tunerStatus.cooldown_remaining_seconds}s remaining).`
+                : 'Autonomous tuning engine running.'}
             </span>
           </div>
         )}
 
-        {/* Task 29: Two-Scenario Demo Selector */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'var(--bg-secondary, #1e293b)',
-            border: '1px solid var(--border-color, #334155)',
-            borderRadius: '8px',
-            padding: '0.6rem 1rem',
-            marginBottom: '1rem',
-            flexWrap: 'wrap',
-            gap: '0.5rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Sparkles size={16} color="#c084fc" />
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>Evaluation Demo Scenario:</span>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              className={`btn ${selectedScenario === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem' }}
-              onClick={() => setSelectedScenario('ALL')}
-            >
-              Unified Dashboard
-            </button>
-            <button
-              className={`btn ${selectedScenario === 'SCENARIO_1' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{
-                fontSize: '0.78rem',
-                padding: '0.3rem 0.7rem',
-                borderColor: selectedScenario === 'SCENARIO_1' ? 'var(--accent-blue)' : undefined,
-              }}
-              onClick={() => setSelectedScenario('SCENARIO_1')}
-            >
-              Scenario 1: CPU / Parallelism
-            </button>
-            <button
-              className={`btn ${selectedScenario === 'SCENARIO_2' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{
-                fontSize: '0.78rem',
-                padding: '0.3rem 0.7rem',
-                borderColor: selectedScenario === 'SCENARIO_2' ? '#8b5cf6' : undefined,
-              }}
-              onClick={() => setSelectedScenario('SCENARIO_2')}
-            >
-              Scenario 2: Work Memory / Temp Spill
-            </button>
-          </div>
-        </div>
+        <ErrorBoundary resetKey={route.page + (route.scenarioId || '')}>
+          {route.page === 'home' && (
+            <div className="studio">
+              <HomeView
+                onExploreScenarios={() => navigate('scenarios')}
+                onStartLive={() => navigate('live')}
+              />
+            </div>
+          )}
 
-        {/* Action Controls Bar (Tasks 15, 16, 17) */}
-        <ActionControls
-          tunerStatus={tunerStatus}
-          onToggleMonitoring={active => mutate(() => api.toggleMonitoring(active))}
-          pending={pending}
-          controlsLocked={comparisonActive}
-          onMode={mode => mutate(() => api.setTunerMode(mode))}
-          onApprove={id => mutate(() => api.approve(id))}
-          onRollback={id => mutate(() => api.rollback(id))}
-          onManualRefresh={fetchData}
-          lastUpdated={lastUpdated}
-          isRefreshing={isRefreshing}
-        />
+          {route.page === 'scenarios' && (
+            <div className="studio page-scenarios">
+              <ScenarioGallery />
+            </div>
+          )}
 
-        {/* Top Summary Bar */}
-        <TopSummary tunerStatus={tunerStatus} workloadStatus={workloadStatus} />
+          {scenario && (
+            <nav className="page-breadcrumb" aria-label="Breadcrumb">
+              <a href={routeHref('scenarios')}>Scenarios</a>
+              <span aria-hidden="true">/</span>
+              <span aria-current="page">{scenario.title}</span>
+            </nav>
+          )}
 
-        {/* Workload Status Panel (Task 12) */}
-        <WorkloadPanel workloadStatus={workloadStatus} pending={pending}
-          canStart={!!workloadStatus && !!tunerStatus && !comparisonActive && !tunerStatus.recovery_required && !tunerStatus.cooldown_remaining_seconds}
-          onStart={(profile, duration) => mutate(() => api.startWorkload(profile, duration))}
-          onStop={() => mutate(() => api.stopWorkload())} />
+          {scenario?.kind === 'scripted' && (
+            <div className="studio">
+              <SessionRunner
+                key={scenario.id}
+                session={scenario}
+                onExit={() => navigate('scenarios')}
+                onComplete={handleComplete}
+              />
+            </div>
+          )}
 
-        {/* VIEW 1: MAIN DASHBOARD */}
-        {activeTab === 'evidence' && <PerformanceEvidence />}
-        {activeTab === 'dashboard' && (
-          <>
-            {/* OS Metrics Grid (Task 9 & 26) */}
+          {livePage && (
+            <div className="studio">
+              <LiveSessionView
+                metrics={metrics}
+                history={history}
+                tunerStatus={tunerStatus}
+                workloadStatus={workloadStatus}
+                trace={trace}
+                pending={pending}
+                locked={comparisonActive}
+                onOpenMetrics={() => setMetricsOpen(true)}
+                onComplete={handleComplete}
+                onStart={(options) => mutate(async () => {
+                  const mode = await api.setTunerMode('recommendation');
+                  if (mode.status !== 200) return mode;
+                  return api.startWorkload({
+                    profile: options.profile,
+                    duration_seconds: options.duration,
+                    workload_type: options.workloadType,
+                    initial_parallelism: options.initialParallelism,
+                    initial_work_mem_mb: options.initialWorkMemMb,
+                  });
+                }, 'Live session started.')}
+                onStop={() => mutate(api.stopWorkload, 'Session stopped.')}
+              />
+            </div>
+          )}
+
+          {route.page === 'algorithm' && (
+            <div className="studio">
+              <AlgorithmView trace={trace} />
+            </div>
+          )}
+
+          {route.page === 'system' && (
+            <div className="studio">
+              <SystemView />
+            </div>
+          )}
+
+          {route.page === 'results' && (
+            <div className="studio">
+              <ResultsHistory experiments={experiments} error={experimentError} />
+            </div>
+          )}
+
+          {route.page === 'study' && (
+            <section className="studio study-page" aria-labelledby="study-title">
+              <p className="section-eyebrow">Performance Study</p>
+              <h2 id="study-title" className="section-heading">Compare baseline and tuned performance</h2>
+              <p className="section-sub">Configure a paired study, follow its progress, and inspect the evidence on this dedicated page.</p>
+              <PerformanceEvidence />
+            </section>
+          )}
+
+          {missingPage && (
+            <section className="studio empty-state">
+              <h2>Page not found</h2>
+              <p>This page or scenario does not exist.</p>
+              <a className="btn-primary" href={routeHref('scenarios')}>Browse scenarios</a>
+            </section>
+          )}
+
+          {/* Advanced Controls & Live Status Dropdown for Full Direct Tuning Control */}
+          <details className="advanced-controls" style={{ marginTop: '2rem' }}>
+            <summary style={{ cursor: 'pointer', padding: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+              Advanced controls & live status
+            </summary>
+
+            <ActionControls
+              tunerStatus={tunerStatus}
+              onToggleMonitoring={(active) => mutate(() => api.toggleMonitoring(active))}
+              pending={pending}
+              controlsLocked={comparisonActive}
+              onMode={(mode) => mutate(() => api.setTunerMode(mode))}
+              onApprove={(id) => mutate(() => api.approve(id))}
+              onRollback={(id) => mutate(() => api.rollback(id))}
+              onManualRefresh={fetchData}
+              lastUpdated={lastUpdated}
+              isRefreshing={isRefreshing}
+            />
+
+            <TopSummary tunerStatus={tunerStatus} workloadStatus={workloadStatus} />
+
+            <WorkloadPanel
+              workloadStatus={workloadStatus}
+              pending={pending}
+              canStart={!!workloadStatus && !!tunerStatus && !comparisonActive && !tunerStatus.recovery_required && !tunerStatus.cooldown_remaining_seconds}
+              onStart={(profile, duration) => mutate(() => api.startWorkload(profile, duration))}
+              onStop={() => mutate(() => api.stopWorkload())}
+            />
+
+            {/* Interactive Demonstration Scenarios Filter */}
+            <div style={{ display: 'flex', gap: '0.75rem', margin: '1.25rem 0', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Demonstration Scenarios:
+              </span>
+              <button
+                className={`action-btn ${selectedScenario === 'CPU_PARALLELISM' ? 'primary' : 'secondary'}`}
+                onClick={() => setSelectedScenario(selectedScenario === 'CPU_PARALLELISM' ? 'ALL' : 'CPU_PARALLELISM')}
+              >
+                Scenario 1: CPU Contention (workers 8 -&gt; 6)
+              </button>
+              <button
+                className={`action-btn ${selectedScenario === 'WORK_MEM_SPILL' ? 'primary' : 'secondary'}`}
+                onClick={() => setSelectedScenario(selectedScenario === 'WORK_MEM_SPILL' ? 'ALL' : 'WORK_MEM_SPILL')}
+              >
+                Scenario 2: Temp Spill (work_mem 8MB -&gt; 16MB)
+              </button>
+              {selectedScenario !== 'ALL' && (
+                <button
+                  className="action-btn secondary"
+                  onClick={() => setSelectedScenario('ALL')}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                >
+                  Clear Filter
+                </button>
+              )}
+            </div>
+
+            {/* OS Metrics Grid */}
             <div className="section-title">
               <Cpu size={18} color="var(--accent-blue)" />
               Operating System Telemetry
@@ -336,7 +458,7 @@ export default function App() {
                 status={os.cpu_percent > 85 ? 'critical' : os.cpu_percent > 70 ? 'warning' : 'normal'}
                 subtitle="All Cores (WSL2)"
                 isWaiting={isWaiting}
-                tooltip="Total OS CPU across all physical/virtual cores. Sustained >80% prompts autotuner parallel worker throttling."
+                tooltip="Aggregate CPU core utilization. Values > 85% indicate potential contention."
               />
               <MetricCard
                 title="RAM Usage"
@@ -346,7 +468,7 @@ export default function App() {
                 status={os.memory_percent > 85 ? 'warning' : 'normal'}
                 subtitle="System Memory"
                 isWaiting={isWaiting}
-                tooltip="Host memory usage. OptiDBX admission control restricts work_mem increases when RAM > 85%."
+                tooltip="Host physical RAM utilization percentage. Guardrail threshold at 85%."
               />
               <MetricCard
                 title="Disk Read"
@@ -355,7 +477,7 @@ export default function App() {
                 icon={HardDrive}
                 subtitle="Window Read I/O"
                 isWaiting={isWaiting}
-                tooltip="Bytes read from storage during this sampling interval."
+                tooltip="Bytes read from storage during this 5-second interval."
               />
               <MetricCard
                 title="Disk Write"
@@ -378,10 +500,10 @@ export default function App() {
               />
             </div>
 
-            {/* OS Memory Safety & work_mem Admission Control (Tasks 4, 5) */}
+            {/* OS Memory Safety & work_mem Admission Control */}
             <MemorySafetyPanel memorySafety={tunerStatus?.memory_safety} osMetrics={os} />
 
-            {/* DBMS Metrics Grid (Task 10 & 26) */}
+            {/* DBMS Metrics Grid */}
             <div className="section-title">
               <Database size={18} color="var(--accent-cyan)" />
               PostgreSQL Telemetry
@@ -428,57 +550,46 @@ export default function App() {
               />
             </div>
 
-            {/* Autotuner Status Panel (Tasks 13, 14, 15, 27) */}
+            {/* Autotuner Status Panel */}
             <AutotunerPanel tunerStatus={tunerStatus} />
 
-            {/* Live Time-Series Chart (Task 11) */}
+            {/* Live Time-Series Chart */}
             <TimeSeriesChart historyData={history} />
 
-            {/* Before / After Evaluation Card (Task 19 - Truthful Phase 2 State) */}
+            {/* 30-Second Observation & Decision Loop */}
             <div className="section-title">
               <Layers size={18} color="var(--accent-green)" />
               30-Second Observation & Decision Loop
             </div>
             <BeforeAfterCard action={tunerStatus?.active_action} />
-          </>
-        )}
 
-        {/* VIEW 2: TELEMETRY TRENDS */}
-        {activeTab === 'metrics' && (
-          <div>
-            <div className="section-title">
-              <Activity size={18} color="var(--accent-blue)" />
-              Real-Time Telemetry Visualizer (4 Metrics)
-            </div>
-            <TimeSeriesChart historyData={history} />
-          </div>
-        )}
-
-        {/* VIEW 3: TUNING HISTORY */}
-        {activeTab === 'tuning' && (
-          <div>
+            {/* Tuning History Table */}
             <div className="section-title">
               <Layers size={18} color="var(--accent-green)" />
               Tuning Recommendations History (PostgreSQL <code>tuning_actions</code>)
             </div>
             <TuningHistoryTable history={tuningHistory} />
-          </div>
-        )}
 
-        {/* VIEW 4: EVALUATION & BENCHMARKS (Tasks 20, 21, 29) */}
-        {activeTab === 'experiments' && (
-          <EvaluationView experiments={experiments} error={experimentError} />
-        )}
+            {/* Evaluation & Benchmarks View */}
+            <EvaluationView experiments={experiments} error={experimentError} />
+          </details>
+        </ErrorBoundary>
       </main>
 
+      <LiveMetricsModal
+        open={metricsOpen}
+        onClose={() => setMetricsOpen(false)}
+        metrics={metrics}
+        history={history}
+        isWaiting={isWaiting}
+      />
+
       <footer className="app-footer">
-        <div>
-          <strong>OptiDBX Safe V1</strong> - Local PostgreSQL tuning and evaluation
-        </div>
-        <div>
-          Polling: 5s | API Port: 8000 | Frontend: 3000 | Mode: {tunerStatus?.mode || 'Unavailable'}
-        </div>
+        <div><strong>OptiDBX</strong> — safe PostgreSQL auto-tuning</div>
+        <div>Mode: {tunerStatus?.mode || 'Unavailable'} · Telemetry every 5s</div>
       </footer>
+
+      {!entered && <Welcome onEnter={enterApp} />}
     </div>
   );
 }

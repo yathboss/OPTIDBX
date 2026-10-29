@@ -4,6 +4,7 @@ test('real WSL PostgreSQL workload and persisted evaluation', async ({page, requ
   test.skip(process.env.OPTIDBX_LIVE !== '1', 'Requires initialized local PostgreSQL and API');
   test.setTimeout(90000);
   await page.goto('/');
+  await page.getByText('Advanced controls & live status', {exact:true}).click();
   await page.getByRole('button', {name: 'Start Workload', exact: true}).click();
   try {
     await expect(page.getByText('WORKLOAD RUNNING', {exact: true})).toBeVisible();
@@ -15,7 +16,7 @@ test('real WSL PostgreSQL workload and persisted evaluation', async ({page, requ
     await page.screenshot({path: '../docs/testing/evidence/v1-live-dashboard.png', fullPage: true});
     await page.getByRole('button', {name: 'Stop Workload', exact: true}).click();
     await expect(page.getByText('WORKLOAD STOPPED', {exact: true})).toBeVisible({timeout: 20000});
-    await page.getByRole('button', {name: 'Evaluation & Benchmarks'}).click();
+    await page.getByRole('button', {name: 'Results & Reports'}).click();
     await page.getByRole('button', {name: `View run ${status.experiment_id}`, exact: true}).click();
     await expect(page.getByRole('heading', {name: `Run #${status.experiment_id}: BASELINE`})).toBeVisible();
     const history = await (await request.get(`http://localhost:8000/metrics/history?experiment_id=${status.experiment_id}`)).json();

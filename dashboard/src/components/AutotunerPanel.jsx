@@ -115,7 +115,7 @@ export default function AutotunerPanel({ tunerStatus }) {
   return (
     <div className="autotuner-panel">
       <div className="section-title">
-        <Sparkles size={18} color="#8b5cf6" />
+        <Sparkles size={18} color="var(--accent-purple, #8b5cf6)" />
         Autotuner Closed-Loop Engine & Action Lifecycle
       </div>
 
@@ -372,7 +372,7 @@ export default function AutotunerPanel({ tunerStatus }) {
                       }}
                     >
                       <span style={{ color: 'var(--text-muted)' }}>Workers: </span>
-                      <strong style={{ fontFamily: 'var(--font-mono)', color: '#93c5fd' }}>
+<strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue, #93c5fd)' }}>
                         {evidence.active_workers}
                       </strong>
                     </div>
@@ -714,8 +714,8 @@ export default function AutotunerPanel({ tunerStatus }) {
                 }}
               >
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  Action Audit: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong> | OS:{' '}
-                  <strong>{tunerStatus?.os_persistence_status || 'IDLE'}</strong> | DB:{' '}
+                  Action Audit: <strong>{tunerStatus?.persistence_status || 'NOT_REQUESTED'}</strong> &middot; OS Storage:{' '}
+                  <strong>{tunerStatus?.os_persistence_status || 'IDLE'}</strong> &middot; DB Storage:{' '}
                   <strong>{tunerStatus?.db_persistence_status || 'IDLE'}</strong>
                 </div>
               </div>
@@ -730,7 +730,7 @@ export default function AutotunerPanel({ tunerStatus }) {
                 color: 'var(--text-muted)',
               }}
             >
-              Interval: <strong>5s</strong> | Observation Window: <strong>30s</strong> | Cooldown: <strong>30s</strong>
+              Sampling Interval: <strong>5s</strong> | Candidate Window: <strong>15s</strong> | Observation: <strong>30s</strong> | Cooldown: <strong>30s</strong>
             </div>
           </div>
         </div>

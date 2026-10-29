@@ -148,7 +148,7 @@ export default function TuningHistoryTable({ history = [] }) {
                 </td>
 
                 {/* Parameter */}
-                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: '#93c5fd' }}>
+                <td style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-blue)' }}>
                   {item.parameter}
                 </td>
 

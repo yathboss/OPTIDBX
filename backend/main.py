@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse
 from backend.routes.benchmarks import for_manager
 from backend.routes.benchmarks import router as benchmarks_router
 from backend.routes.experiments import router as experiments_router
+from backend.routes.demo import router as demo_router
 from backend.routes.health import router as health_router
 from backend.routes.metrics import router as metrics_router
 from backend.routes.tuner import router as tuner_router
@@ -85,6 +86,7 @@ app.include_router(tuner_router)
 app.include_router(experiments_router)
 app.include_router(workload_router)
 app.include_router(benchmarks_router)
+app.include_router(demo_router)
 
 
 @app.get("/")

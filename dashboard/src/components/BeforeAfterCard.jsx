@@ -13,7 +13,9 @@ import {
   Cpu,
   Gauge,
   HardDrive,
+  RotateCcw,
 } from 'lucide-react';
+import ReportButton from './ReportButton';
 import { comparison } from '../actionState.mjs';
 
 const formatValue = (value, fraction = 1) => {
@@ -26,13 +28,23 @@ const formatBytesToMB = (bytes) => {
   return (Number(bytes) / (1024 * 1024)).toFixed(1) + ' MB';
 };
 
-export default function BeforeAfterCard({ action }) {
+export default function BeforeAfterCard({ action, runMeta = {} }) {
   if (!action || (!action.before && !action.action)) {
     return (
       <div className="comparison-card" style={{ padding: '1.5rem', textAlign: 'center' }}>
         <h3 style={{ fontSize: '1rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
           No completed tuning evaluation yet.
         </h3>
+        {action && (
+          <ReportButton
+            run={{
+              ...runMeta,
+              id: action.experiment_id,
+              status: action.outcome || 'Incomplete',
+              actions: [action],
+            }}
+          />
+        )}
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxWidth: '600px', margin: '0 auto' }}>
           Start an owned workload, then approve a recommendation or enable Auto-Tuning. The autotuner will measure a
           baseline, apply the safe parameter change, observe for 30 seconds, and render verified before-vs-after telemetry here.
@@ -81,7 +93,7 @@ export default function BeforeAfterCard({ action }) {
 
   return (
     <div className="comparison-card-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {/* Task 16: Rollback Failed Critical Alert */}
+      {/* Rollback Failed Critical Alert */}
       {isRollbackFailed && (
         <div
           className="alert-banner alert-danger"
@@ -152,26 +164,36 @@ export default function BeforeAfterCard({ action }) {
               >
                 DECISION: {outcome}
               </span>
-              <span
-                className={`badge ${
-                  isKeep
-                    ? 'badge-green'
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span
+                  className={`badge ${
+                    isKeep
+                      ? 'badge-green'
+                      : isInconclusive
+                      ? 'badge-purple'
+                      : isRollback
+                      ? 'badge-amber'
+                      : 'badge-rose'
+                  }`}
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  {isKeep
+                    ? 'OPTIMIZATION KEPT'
                     : isInconclusive
-                    ? 'badge-purple'
+                    ? 'INCONCLUSIVE (REVERTED)'
                     : isRollback
-                    ? 'badge-amber'
-                    : 'badge-rose'
-                }`}
-                style={{ fontSize: '0.75rem' }}
-              >
-                {isKeep
-                  ? 'OPTIMIZATION KEPT'
-                  : isInconclusive
-                  ? 'INCONCLUSIVE (REVERTED)'
-                  : isRollback
-                  ? 'SETTING ROLLED BACK'
-                  : 'RECOVERY REQUIRED'}
-              </span>
+                    ? 'SETTING ROLLED BACK'
+                    : 'RECOVERY REQUIRED'}
+                </span>
+                <ReportButton
+                  run={{
+                    ...runMeta,
+                    id: action.experiment_id,
+                    status: outcome,
+                    actions: [action],
+                  }}
+                />
+              </div>
             </div>
             <p style={{ margin: '0.4rem 0 0', fontSize: '0.875rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
               {action.reason || (
@@ -223,7 +245,7 @@ export default function BeforeAfterCard({ action }) {
         </div>
       )}
 
-      {/* Task 12 & 13: Before vs After Comparison Table */}
+      {/* Before vs After Comparison Table */}
       <div className="comparison-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>
@@ -484,7 +506,7 @@ export default function BeforeAfterCard({ action }) {
         </div>
       </div>
 
-      {/* Task 33: Evaluation Summary Card (Dynamic for Active Scenario) */}
+      {/* Evaluation Summary Card */}
       {after && outcome && (
         <div
           style={{

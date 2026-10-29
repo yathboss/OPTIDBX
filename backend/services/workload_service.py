@@ -17,9 +17,25 @@ class WorkloadService:
     def get_status(self):
         return WorkloadStatusResponse(**self.manager.status())
 
-    def start(self, profile, duration):
+    def start(
+        self,
+        profile,
+        duration,
+        *,
+        workload_type="ANALYTICAL",
+        initial_parallelism=None,
+        initial_work_mem_mb=None,
+    ):
         try:
-            return WorkloadStatusResponse(**self.manager.start(profile, duration))
+            return WorkloadStatusResponse(
+                **self.manager.start(
+                    profile,
+                    duration,
+                    workload_type=workload_type,
+                    initial_parallelism=initial_parallelism,
+                    initial_work_mem_mb=initial_work_mem_mb,
+                )
+            )
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         except Exception as exc:

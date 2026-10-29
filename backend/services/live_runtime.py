@@ -5,7 +5,7 @@ from functools import lru_cache
 from fastapi import HTTPException
 
 from autotuner.runtime import AutotunerRuntime
-from backend.models.metrics import CurrentMetricsResponse
+from backend.models.metrics import CurrentMetricsResponse, MetricProvenance
 from backend.models.tuner import TunerStatusResponse, TuningActionItem
 from db_monitor.storage import save_action_event, save_db_metrics, save_recommendation
 from os_monitor.storage import save_system_metrics
@@ -241,7 +241,61 @@ class LiveMetricsProvider:
         samples = self.runtime.get_history(1)
         if not samples:
             raise HTTPException(status_code=503, detail="Waiting for real telemetry")
-        return self.serialize(samples[-1])
+        response = self.serialize(samples[-1])
+        response.provenance = self._provenance()
+        return response
+
+    def _provenance(self):
+        """Attach the real derivation inputs of the latest interval, when available."""
+        collector = getattr(self.runtime, "db_collector", None)
+        if collector is None:
+            return None
+        sample_calls = getattr(collector, "last_sample_calls", None)
+        interval_seconds = getattr(collector, "last_interval_seconds", None)
+        collected_at = getattr(collector, "last_collected_at", None)
+        if not isinstance(sample_calls, int):
+            sample_calls = None
+        if not isinstance(interval_seconds, (int, float)):
+            interval_seconds = None
+        if not isinstance(collected_at, str):
+            collected_at = None
+        if sample_calls is None and interval_seconds is None and collected_at is None:
+            return None
+        return MetricProvenance(
+            sample_calls=sample_calls,
+            interval_seconds=interval_seconds,
+            collected_at=collected_at,
+        )
 
     def get_metrics_history(self, limit=20):
         return [self.serialize(sample) for sample in self.runtime.get_history(limit)]
+
+
+def get_algorithm_config(config=None):
+    from config.config_loader import load_config
+    cfg = config or load_config()
+    return {
+        "thresholds": {
+            "cpu_high_percent": cfg.thresholds.cpu_high_percent,
+            "context_switches_high_per_interval": cfg.thresholds.context_switches_high_per_interval,
+            "active_workers_high": cfg.thresholds.active_workers_high,
+            "query_latency_high_ms": cfg.thresholds.query_latency_high_ms,
+            "memory_high_percent": cfg.thresholds.memory_high_percent,
+        },
+        "required_consecutive": cfg.monitoring.consecutive_bad_readings,
+        "interval_seconds": cfg.monitoring.interval_seconds,
+        "allowed_workers": list(cfg.safe_values.max_parallel_workers_per_gather),
+        "keep_policy": cfg.tuning.keep_policy,
+        "weights": {
+            "throughput": cfg.tuning.throughput_weight,
+            "latency": cfg.tuning.latency_weight,
+        },
+        "improvement_percent": cfg.tuning.improvement_percent,
+        "degradation_percent": cfg.tuning.degradation_percent,
+        "max_latency_regression_percent": cfg.tuning.max_latency_regression_percent,
+        "resource_degradation_percent": cfg.tuning.resource_degradation_percent,
+        "observation_window_seconds": cfg.tuning.observation_window_seconds,
+        "cooldown_seconds": cfg.tuning.cooldown_seconds,
+        "baseline_warmup_seconds": cfg.tuning.baseline_warmup_seconds,
+        "rejection_memory_ttl_seconds": cfg.tuning.rejection_memory_ttl_seconds,
+    }

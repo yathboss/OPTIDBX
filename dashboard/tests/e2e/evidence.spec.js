@@ -5,6 +5,7 @@ test('evidence has no invented claims and a pilot remains inconclusive', async (
   let started;
   await page.route('http://localhost:8000/**', async route => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/demo/setup') return route.fulfill({json:{profiles:{LOW:1,MEDIUM:4,HIGH:10},approved_values:[1,2,4,6,8],os:{automatic:false}}});
     if (path === '/benchmarks/start') {
       started = route.request().postDataJSON();
       records = [{id: 'pilot-id', status: 'COMPLETED', config: started, runs: [],
@@ -19,7 +20,9 @@ test('evidence has no invented claims and a pilot remains inconclusive', async (
     return route.fulfill({json: []});
   });
   await page.goto('/');
-  await page.getByRole('button', {name: 'Performance Evidence', exact: true}).click();
+  await page.getByText('Advanced controls & live status', {exact:true}).click();
+  await page.getByRole('button', {name: 'Results & Reports', exact:true}).click();
+  await page.getByText('Performance Evidence: paired comparisons', {exact:true}).click();
   await expect(page.getByRole('heading', {name: 'Not evaluated', exact: true})).toBeVisible();
   await page.getByRole('button', {name: 'Start comparison', exact: true}).click();
   await expect(page.getByRole('heading', {name: 'Inconclusive', exact: true})).toBeVisible();
@@ -39,7 +42,9 @@ test('failed evidence is visible and cancellation is connected', async ({page}) 
     return route.fulfill({json: path === '/tuner/status' ? {state:'MONITORING'} : []});
   });
   await page.goto('/');
-  await page.getByRole('button', {name: 'Performance Evidence', exact: true}).click();
+  await page.getByText('Advanced controls & live status', {exact:true}).click();
+  await page.getByRole('button', {name: 'Results & Reports', exact:true}).click();
+  await page.getByText('Performance Evidence: paired comparisons', {exact:true}).click();
   await expect(page.getByRole('button', {name: 'Start comparison', exact: true})).toBeDisabled();
   await page.getByRole('button', {name: 'Cancel comparison', exact: true}).click();
   await expect(page.getByText('Comparison cancelled by user', {exact:true})).toBeVisible();

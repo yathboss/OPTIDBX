@@ -2,10 +2,12 @@
 
 import logging
 from collections import deque
+from datetime import UTC, datetime
 from typing import Any
 
 from autotuner.action_selector import select_action
 from autotuner.detectors.cpu_detector import detect_cpu, is_cpu_candidate
+from autotuner.rejection_memory import condition_signature
 from autotuner.models import (
     BottleneckType,
     CombinedTelemetry,
@@ -19,21 +21,30 @@ logger = logging.getLogger(__name__)
 
 
 class AutotunerEngine:
-    def __init__(self, config: AppConfig | None = None):
+    def __init__(self, config: AppConfig | None = None, *, rejection_memory=None):
         self.config = load_config() if config is None else config
+        self.rejection_memory = rejection_memory
         self.recent_readings: deque[CombinedTelemetry] = deque(
+            maxlen=self.config.monitoring.history_size
+        )
+        self.decision_trace: deque[dict[str, Any]] = deque(
             maxlen=self.config.monitoring.history_size
         )
         self._consecutive = 0
         self._status = RuntimeStatus()
+        self._last_invalidation_reason: str | None = None
 
     def get_status(self) -> RuntimeStatus:
         return self._status.model_copy(deep=True)
+
+    def get_decision_trace(self, limit: int = 50) -> list[dict[str, Any]]:
+        return list(self.decision_trace)[-limit:]
 
     def invalidate(self, reason: str) -> None:
         if self._consecutive:
             logger.info("Candidate reset: %s", reason, extra={"event": "candidate_reset"})
         self._consecutive = 0
+        self._last_invalidation_reason = reason
         self._status = RuntimeStatus(reason=reason, last_error=reason)
 
     def process(
@@ -43,6 +54,8 @@ class AutotunerEngine:
         current_parallelism: int | None = None,
     ) -> EngineResult:
         """Validate a sample, update confirmation, and return a JSON-serializable snapshot."""
+        invalidation_reason = self._last_invalidation_reason
+        self._last_invalidation_reason = None
         try:
             sample = CombinedTelemetry.model_validate(telemetry)
             skew = abs((sample.os_metrics.timestamp - sample.db_metrics.timestamp).total_seconds())
@@ -53,11 +66,32 @@ class AutotunerEngine:
         except ValueError:
             self.invalidate("Invalid or missing telemetry")
             logger.warning("Invalid or missing telemetry", extra={"event": "invalid_telemetry"})
+            now_iso = datetime.now(UTC).isoformat()
+            th = self.config.thresholds
+            self.decision_trace.append({
+                "timestamp": now_iso,
+                "signals": {
+                    "cpu_percent": {"value": None, "threshold": th.cpu_high_percent, "passed": False},
+                    "context_switches": {"value": None, "threshold": th.context_switches_high_per_interval, "passed": False},
+                    "active_workers": {"value": None, "threshold": th.active_workers_high, "passed": False},
+                    "query_latency_ms": {"value": None, "threshold": th.query_latency_high_ms, "passed": False},
+                },
+                "candidate": False,
+                "consecutive": 0,
+                "required": self.config.monitoring.consecutive_bad_readings,
+                "state": TunerState.MONITORING.value,
+                "recommended": None,
+                "old_value": None,
+                "new_value": None,
+                "suppressed_reason": None,
+                "invalidated": "Invalid or missing telemetry",
+            })
             raise
 
         if self.recent_readings:
             gap = (sample.timestamp - self.recent_readings[-1].timestamp).total_seconds()
             if gap > self.config.monitoring.interval_seconds * 1.5:
+                invalidation_reason = "Telemetry gap"
                 self.invalidate("Telemetry gap")
                 logger.info("Telemetry gap reset confirmation", extra={"event": "telemetry_gap"})
         self.recent_readings.append(sample)
@@ -68,6 +102,7 @@ class AutotunerEngine:
         required = self.config.monitoring.consecutive_bad_readings
         candidate = is_cpu_candidate(sample, self.config.thresholds)
         if not candidate and self._consecutive:
+            invalidation_reason = "Normal reading interrupted CPU contention"
             self.invalidate("Normal reading interrupted CPU contention")
         self._consecutive = min(self._consecutive + 1, required) if candidate else 0
         if candidate:
@@ -91,6 +126,21 @@ class AutotunerEngine:
             and (action.old_value, action.new_value) == (previous.old_value, previous.new_value)
         ):
             action = previous
+        suppressed_reason = None
+        if action is not None and action.new_value is not None and self.rejection_memory is not None:
+            signature = condition_signature(
+                sample.db_metrics.active_workers, sample.os_metrics.cpu_percent
+            )
+            suppressed, suppressed_reason = self.rejection_memory.is_suppressed(
+                (action.old_value, action.new_value), signature, sample.timestamp
+            )
+            if suppressed:
+                logger.info(
+                    "Recommendation suppressed by rejection memory: %s",
+                    suppressed_reason,
+                    extra={"event": "recommendation_suppressed"},
+                )
+                action = None
         if action is not None:
             logger.info(
                 "Recommendation created",
@@ -111,16 +161,57 @@ class AutotunerEngine:
             if candidate
             else TunerState.MONITORING
         )
+        reason = bottleneck.reason
+        if suppressed_reason is not None:
+            reason = f"{reason} {suppressed_reason}"
         self._status = RuntimeStatus(
             state=state,
             detected_bottleneck=bottleneck.bottleneck_type,
-            reason=bottleneck.reason,
+            reason=reason,
             evidence=bottleneck.evidence,
             recommended_action=action,
             timestamp=sample.timestamp,
             consecutive_bad_readings=self._consecutive,
             telemetry_available=True,
         )
+
+        th = self.config.thresholds
+        tick_entry = {
+            "timestamp": sample.timestamp.isoformat(),
+            "signals": {
+                "cpu_percent": {
+                    "value": sample.os_metrics.cpu_percent,
+                    "threshold": th.cpu_high_percent,
+                    "passed": sample.os_metrics.cpu_percent >= th.cpu_high_percent,
+                },
+                "context_switches": {
+                    "value": sample.os_metrics.context_switches,
+                    "threshold": th.context_switches_high_per_interval,
+                    "passed": sample.os_metrics.context_switches >= th.context_switches_high_per_interval,
+                },
+                "active_workers": {
+                    "value": sample.db_metrics.active_workers,
+                    "threshold": th.active_workers_high,
+                    "passed": sample.db_metrics.active_workers >= th.active_workers_high,
+                },
+                "query_latency_ms": {
+                    "value": sample.db_metrics.query_latency_ms,
+                    "threshold": th.query_latency_high_ms,
+                    "passed": sample.db_metrics.query_latency_ms >= th.query_latency_high_ms,
+                },
+            },
+            "candidate": candidate,
+            "consecutive": self._consecutive,
+            "required": required,
+            "state": state.value if hasattr(state, "value") else str(state),
+            "recommended": f"{action.old_value}→{action.new_value}" if action and action.new_value is not None else None,
+            "old_value": action.old_value if action else None,
+            "new_value": action.new_value if action else None,
+            "suppressed_reason": suppressed_reason,
+            "invalidated": invalidation_reason,
+        }
+        self.decision_trace.append(tick_entry)
+
         return EngineResult(
             bottleneck=bottleneck,
             recommended_action=action,

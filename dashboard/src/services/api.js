@@ -52,6 +52,7 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  getDemoSetup: () => request('/demo/setup'),
   getBenchmarks: () => request('/benchmarks'),
   startBenchmark: config => request('/benchmarks/start', {method:'POST', body:JSON.stringify(config)}),
   cancelBenchmark: () => request('/benchmarks/cancel', {method:'POST'}),
@@ -91,6 +92,8 @@ export const api = {
 
   getLiveTunerStatus: () => request('/tuner/live-status'),
 
+  getDecisionTrace: (limit = 50) => request(`/tuner/decision-trace?limit=${limit}`),
+
   setTunerMode: (mode) =>
     request('/tuner/mode', {
       method: 'POST',
@@ -106,8 +109,22 @@ export const api = {
 
   // Real Workload & Experiment Endpoints
   getWorkloadStatus: () => request('/workload/status'),
-  startWorkload: (profile, duration_seconds) => request('/workload/start', {
-    method: 'POST', body: JSON.stringify({profile, duration_seconds}),
+  getWorkloadOptions: () => request('/workload/options'),
+  startWorkload: ({
+    profile,
+    duration_seconds,
+    workload_type = 'ANALYTICAL',
+    initial_parallelism = null,
+    initial_work_mem_mb = null,
+  }) => request('/workload/start', {
+    method: 'POST',
+    body: JSON.stringify({
+      profile,
+      duration_seconds,
+      workload_type,
+      initial_parallelism,
+      initial_work_mem_mb,
+    }),
   }),
   stopWorkload: () => request('/workload/stop', {method: 'POST'}),
   approve: id => (id ? request(`/tuner/actions/${encodeURIComponent(id)}/approve`, {method: 'POST'}) : request('/tuner/apply-recommended', {method: 'POST'})),

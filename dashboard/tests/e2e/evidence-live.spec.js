@@ -7,7 +7,9 @@ test('real PostgreSQL pilot records both modes without an improvement claim', as
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', {name:'Performance Evidence', exact:true}).click();
+  await page.getByText('Advanced controls & live status', {exact:true}).click();
+  await page.getByRole('button', {name: 'Results & Reports', exact:true}).click();
+  await page.getByText('Performance Evidence: paired comparisons', {exact:true}).click();
   await expect(page.getByRole('button', {name:'Start comparison', exact:true})).toBeEnabled();
   const created = page.waitForResponse(response => response.url().endsWith('/benchmarks/start'));
   await page.getByRole('button', {name:'Start comparison', exact:true}).click();

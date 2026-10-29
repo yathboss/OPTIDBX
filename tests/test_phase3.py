@@ -237,6 +237,146 @@ def test_configured_degradation_tolerance_is_independent_from_improvement(tmp_pa
     assert ctl.status()["state"] == "KEEP"
 
 
+def owned_metrics(*, qps, p95, error_rate=0.0, successes=50):
+    """A client-observed owned-workload window summary, as BoundWorkloadGroup returns."""
+    return {
+        "successful_queries": successes,
+        "errors": 0,
+        "timeouts": 0,
+        "elapsed_seconds": 25,
+        "qps": qps,
+        "median_latency_ms": p95 * 0.7,
+        "p95_latency_ms": p95,
+        "error_rate": error_rate,
+        "truncated": False,
+    }
+
+
+class OwnedDB(FakeDB):
+    """FakeDB that also exposes owned-workload client measurements by window."""
+
+    def __init__(self, before, after):
+        super().__init__()
+        self._before, self._after = before, after
+        self.windows = []
+
+    def earliest(self):
+        return -100.0  # Warm controlled-data workload predates both windows.
+
+    def window(self, start, end):
+        self.windows.append((start, end))
+        # The pre-apply baseline window ends at apply time (monotonic ~10.0).
+        return self._before if end <= 10.5 else self._after
+
+
+def setup_owned(tmp_path, sample, db):
+    mod = importlib.import_module("autotuner.lifecycle")
+    gate = importlib.import_module("actions.guard").ActionGate()
+    now = [10.0]
+    controller = mod.ActionLifecycle(
+        load_config(),
+        db,
+        gate=gate,
+        journal_path=tmp_path / "recovery.json",
+        store=Mock(),
+        monotonic=lambda: now[0],
+    )
+    history = [CombinedTelemetry.model_validate(sample(i)) for i in range(3)]
+    engine = AutotunerEngine()
+    for s in history:
+        recommendation = engine.process(s, current_parallelism=8).recommended_action
+    return controller, now, history, recommendation
+
+
+def test_owned_workload_measurement_drives_keep(tmp_path, sample):
+    # Faster owned queries after the change: lower p95, higher QPS.
+    db = OwnedDB(owned_metrics(qps=8, p95=150), owned_metrics(qps=10, p95=90))
+    ctl, now, hist, rec = setup_owned(tmp_path, sample, db)
+    ctl.approve(rec, hist, now=hist[-1].timestamp)
+    ctl.wait_idle()
+    # Identical, unimproved database-wide telemetry that previously forced ROLLBACK.
+    for i in range(3, 9):
+        feed(ctl, now, sample, i)
+    assert ctl.status()["state"] == "KEEP"
+    assert ctl.history()[-1]["evaluation_source"] == "OWNED_WORKLOAD"
+    assert db.value == 6
+
+
+def test_owned_workload_measurement_overrides_telemetry_keep(tmp_path, sample):
+    # Owned queries got slower after the change even though telemetry latency "improved".
+    db = OwnedDB(owned_metrics(qps=10, p95=100), owned_metrics(qps=6, p95=200))
+    ctl, now, hist, rec = setup_owned(tmp_path, sample, db)
+    ctl.approve(rec, hist, now=hist[-1].timestamp)
+    ctl.wait_idle()
+    for i in range(3, 9):
+        feed(ctl, now, sample, i, query_latency_ms=180)
+    assert ctl.status()["state"] == "ROLLBACK"
+    assert ctl.history()[-1]["evaluation_source"] == "OWNED_WORKLOAD"
+    assert db.value == 8
+
+
+def test_owned_workload_insufficient_samples_roll_back(tmp_path, sample):
+    # Too few completed owned queries to trust an improvement claim.
+    db = OwnedDB(owned_metrics(qps=10, p95=100), owned_metrics(qps=20, p95=40, successes=2))
+    ctl, now, hist, rec = setup_owned(tmp_path, sample, db)
+    ctl.approve(rec, hist, now=hist[-1].timestamp)
+    ctl.wait_idle()
+    for i in range(3, 9):
+        feed(ctl, now, sample, i, query_latency_ms=180)
+    assert ctl.status()["state"] == "ROLLBACK"
+    assert "owned" in ctl.history()[-1]["reason"].lower()
+    assert db.value == 8
+
+
+def test_net_benefit_keeps_throughput_gain_despite_latency_cost(tmp_path, sample):
+    # Controlled throughput gain with tail latency cost below the unchanged 10% veto.
+    db = OwnedDB(
+        owned_metrics(qps=7.53, p95=1190, successes=226),
+        owned_metrics(qps=10.91, p95=1260, successes=311),
+    )
+    ctl, now, hist, rec = setup_owned(tmp_path, sample, db)
+    ctl.approve(rec, hist, now=hist[-1].timestamp)
+    ctl.wait_idle()
+    for i in range(3, 9):
+        feed(ctl, now, sample, i)
+    assert ctl.status()["state"] == "KEEP"
+    record = ctl.history()[-1]
+    assert record["evaluation_source"] == "OWNED_WORKLOAD"
+    assert record["keep_policy"] == "net_benefit"
+    assert record["owned_change"]["qps_percent"] > 0
+    assert db.value == 6
+
+
+def test_net_benefit_hard_latency_cap_rolls_back(tmp_path, sample):
+    # Throughput doubles but p95 more than doubles: past the latency cap, never kept.
+    db = OwnedDB(owned_metrics(qps=5, p95=100), owned_metrics(qps=10, p95=260))
+    ctl, now, hist, rec = setup_owned(tmp_path, sample, db)
+    ctl.approve(rec, hist, now=hist[-1].timestamp)
+    ctl.wait_idle()
+    for i in range(3, 9):
+        feed(ctl, now, sample, i)
+    assert ctl.status()["state"] == "ROLLBACK"
+    assert "cap" in ctl.history()[-1]["reason"].lower()
+    assert db.value == 8
+
+
+def test_rolling_query_log_windows_are_time_scoped():
+    from workload.measurements import RollingQueryLog
+
+    log = RollingQueryLog()
+    for finished in range(1, 11):  # ten 100 ms queries finishing at 1..10 seconds
+        log.record(finished - 0.1, finished)
+    log.record(4.8, 5.0, error=True)  # one error inside the range
+    whole = log.window(0, 11)
+    assert whole["successful_queries"] == 10
+    assert whole["errors"] == 1
+    assert whole["p95_latency_ms"] == pytest.approx(100, rel=0.2)
+    assert whole["error_rate"] == pytest.approx(1 / 11, rel=0.01)
+    # Only queries that finished inside the sub-window count (6, 7, 8 seconds).
+    assert log.window(5.5, 8.5)["successful_queries"] == 3
+    assert log.window(100, 200) is None
+
+
 def test_cancel_before_apply_does_not_write(tmp_path, sample):
     import threading
 
