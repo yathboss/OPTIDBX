@@ -1,0 +1,97 @@
+{
+  "condition": "pin8",
+  "args": {
+    "configs": "8,2",
+    "pairs": 5,
+    "sessions": 6,
+    "warmup": 20,
+    "measure": 180,
+    "timeout_ms": 60000,
+    "seed": 20261121,
+    "condition": "pin8",
+    "out": ".optidbx/phase0"
+  },
+  "settings": {
+    "jit": "on",
+    "max_parallel_workers": "8",
+    "max_parallel_workers_per_gather": "2",
+    "max_worker_processes": "8",
+    "server_version": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+    "shared_buffers": "16384",
+    "work_mem": "4096"
+  },
+  "host": {
+    "cpus_visible": 16,
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "affinity": [
+      12,
+      13,
+      14,
+      15
+    ]
+  },
+  "started_utc": "2026-11-20T22:35:19.167736+00:00",
+  "runs": [
+    {
+      "run": 0,
+      "block": 0,
+      "per_gather": 2,
+      "file": "run00_pg2.json"
+    },
+    {
+      "run": 1,
+      "block": 0,
+      "per_gather": 8,
+      "file": "run01_pg8.json"
+    },
+    {
+      "run": 2,
+      "block": 1,
+      "per_gather": 8,
+      "file": "run02_pg8.json"
+    },
+    {
+      "run": 3,
+      "block": 1,
+      "per_gather": 2,
+      "file": "run03_pg2.json"
+    },
+    {
+      "run": 4,
+      "block": 2,
+      "per_gather": 8,
+      "file": "run04_pg8.json"
+    },
+    {
+      "run": 5,
+      "block": 2,
+      "per_gather": 2,
+      "file": "run05_pg2.json"
+    },
+    {
+      "run": 6,
+      "block": 3,
+      "per_gather": 2,
+      "file": "run06_pg2.json"
+    },
+    {
+      "run": 7,
+      "block": 3,
+      "per_gather": 8,
+      "file": "run07_pg8.json"
+    },
+    {
+      "run": 8,
+      "block": 4,
+      "per_gather": 8,
+      "file": "run08_pg8.json"
+    },
+    {
+      "run": 9,
+      "block": 4,
+      "per_gather": 2,
+      "file": "run09_pg2.json"
+    }
+  ],
+  "finished_utc": "2026-11-20T23:09:33.964717+00:00"
+}
