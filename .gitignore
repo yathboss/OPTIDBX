@@ -75,3 +75,11 @@ Thumbs.db
 /screenshots/
 /.claude-flow/
 /.optidbx/
+
+# Research paper, presentation and generated documents are kept locally, not in the repo
+*.pdf
+*.ppt
+*.pptx
+docs/paper/
+docs/presentation/
+experiments/replay/
